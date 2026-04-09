@@ -88,7 +88,7 @@ export function LoginPage() {
               onAuthenticated={() => navigate({ to: returnTo })}
             />
 
-            <Tabs defaultValue="password" className="space-y-6">
+            <Tabs defaultValue="oauth" className="space-y-6">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="password">{t('login.tabPassword')}</TabsTrigger>
                 <TabsTrigger value="oauth">{t('login.tabOAuth')}</TabsTrigger>

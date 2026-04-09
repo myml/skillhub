@@ -46,7 +46,7 @@ export function Layout() {
     exact?: boolean
     auth?: boolean
   }> = [
-    { label: t('nav.landing'), to: '/', exact: true },
+    { label: t('nav.landing'), to: '/home', exact: true },
     { label: t('nav.publish'), to: '/dashboard/publish', auth: true },
     { label: t('nav.search'), to: '/search' },
     { label: t('nav.dashboard'), to: '/dashboard', auth: true },

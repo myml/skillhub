@@ -156,6 +156,14 @@ const requireAuth = createRequireAuth(getCurrentUser)
 const landingRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/search', search: { q: '', sort: 'downloads', page: 0, starredOnly: false } })
+  },
+})
+
+const homeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'home',
   component: LandingPage,
 })
 
@@ -198,7 +206,7 @@ const searchRoute = createRoute({
     return {
       q: normalizeSearchQuery(typeof search.q === 'string' ? search.q : ''),
       label: typeof search.label === 'string' && search.label ? search.label : undefined,
-      sort: (search.sort as string) || 'newest',
+      sort: (search.sort as string) || 'downloads',
       page: Number(search.page) || 0,
       starredOnly: search.starredOnly === true || search.starredOnly === 'true',
     }
@@ -394,6 +402,7 @@ const adminLabelsRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   landingRoute,
+  homeRoute,
   skillsRoute,
   loginRoute,
   registerRoute,
