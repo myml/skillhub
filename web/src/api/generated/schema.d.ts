@@ -4298,6 +4298,7 @@ export interface components {
             provider?: string;
             displayName?: string;
             actionUrl?: string;
+            hidden?: boolean;
         };
         AdminUserSummaryResponse: {
             id?: string;

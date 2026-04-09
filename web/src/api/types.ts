@@ -21,6 +21,7 @@ export interface AuthMethod {
   provider: string
   displayName: string
   actionUrl: string
+  hidden?: boolean
 }
 
 export type ApiToken = Omit<components['schemas']['TokenSummaryResponse'], 'id' | 'name' | 'tokenPrefix' | 'createdAt'> & {

@@ -5,5 +5,6 @@ public record AuthMethodResponse(
     String methodType,
     String provider,
     String displayName,
-    String actionUrl
+    String actionUrl,
+    boolean hidden
 ) {}

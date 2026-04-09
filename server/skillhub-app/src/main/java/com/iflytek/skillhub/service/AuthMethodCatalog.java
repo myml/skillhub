@@ -63,7 +63,8 @@ public class AuthMethodCatalog {
             "PASSWORD",
             "local",
             "Local Account",
-            "/api/v1/auth/local/login"
+            "/api/v1/auth/local/login",
+            false
         ));
 
         oAuth2ClientProperties.getRegistration().entrySet().stream()
@@ -75,7 +76,8 @@ public class AuthMethodCatalog {
                 entry.getValue().getClientName() != null && !entry.getValue().getClientName().isBlank()
                     ? entry.getValue().getClientName()
                     : entry.getKey(),
-                buildAuthorizationUrl(entry.getKey(), sanitizedReturnTo)
+                buildAuthorizationUrl(entry.getKey(), sanitizedReturnTo),
+                entry.getValue().getClientId().contains("placeholder")
             )));
 
         if (directAuthProperties.isEnabled()) {
@@ -86,7 +88,8 @@ public class AuthMethodCatalog {
                     "DIRECT_PASSWORD",
                     provider.providerCode(),
                     provider.displayName(),
-                    "/api/v1/auth/direct/login"
+                    "/api/v1/auth/direct/login",
+                    false
                 )));
         }
 
@@ -98,7 +101,8 @@ public class AuthMethodCatalog {
                     "SESSION_BOOTSTRAP",
                     provider.providerCode(),
                     provider.displayName(),
-                    "/api/v1/auth/session/bootstrap"
+                    "/api/v1/auth/session/bootstrap",
+                    false
                 )));
         }
 
