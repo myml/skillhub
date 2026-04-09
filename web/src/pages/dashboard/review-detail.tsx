@@ -40,7 +40,6 @@ export function ReviewDetailPage() {
   const approveMutation = useApproveReview({
     onSuccess: () => {
       toast.success(t('review.approveSuccess'))
-      navigate({ to: '/dashboard/reviews' })
     },
     onError: (error) => {
       toast.error(t('review.approveFailed'), resolveReviewActionErrorDescription(error))
@@ -49,7 +48,6 @@ export function ReviewDetailPage() {
   const rejectMutation = useRejectReview({
     onSuccess: () => {
       toast.success(t('review.rejectSuccess'))
-      navigate({ to: '/dashboard/reviews' })
     },
     onError: (error) => {
       toast.error(t('review.rejectFailed'), resolveReviewActionErrorDescription(error))

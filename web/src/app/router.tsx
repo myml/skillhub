@@ -96,11 +96,7 @@ const ReportsPage = createRoleProtectedRouteComponent(
   'ReportsPage',
   ['SKILL_ADMIN', 'SUPER_ADMIN'],
 )
-const ReviewDetailPage = createRoleProtectedRouteComponent(
-  () => import('@/pages/dashboard/review-detail'),
-  'ReviewDetailPage',
-  ['SKILL_ADMIN', 'NAMESPACE_ADMIN', 'SUPER_ADMIN'],
-)
+const ReviewDetailPage = createLazyRouteComponent(() => import('@/pages/dashboard/review-detail'), 'ReviewDetailPage')
 const PromotionsPage = createRoleProtectedRouteComponent(
   () => import('@/pages/dashboard/promotions'),
   'PromotionsPage',
