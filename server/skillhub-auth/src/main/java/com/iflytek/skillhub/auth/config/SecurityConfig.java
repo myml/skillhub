@@ -1,34 +1,34 @@
 package com.iflytek.skillhub.auth.config;
 
-import com.iflytek.skillhub.auth.oauth.CustomOAuth2UserService;
-import com.iflytek.skillhub.auth.oauth.OAuth2LoginFailureHandler;
-import com.iflytek.skillhub.auth.oauth.OAuth2LoginSuccessHandler;
-import com.iflytek.skillhub.auth.oauth.SkillHubOAuth2AuthorizationRequestResolver;
-import com.iflytek.skillhub.auth.mock.MockAuthFilter;
-import com.iflytek.skillhub.auth.policy.RouteSecurityPolicyRegistry;
-import com.iflytek.skillhub.auth.token.ApiTokenAuthenticationFilter;
-import com.iflytek.skillhub.auth.token.ApiTokenScopeFilter;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpStatus;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configurers.AuthorizeHttpRequestsConfigurer;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+
+import com.iflytek.skillhub.auth.mock.MockAuthFilter;
+import com.iflytek.skillhub.auth.oauth.CustomOAuth2UserService;
+import com.iflytek.skillhub.auth.oauth.OAuth2LoginFailureHandler;
+import com.iflytek.skillhub.auth.oauth.OAuth2LoginSuccessHandler;
+import com.iflytek.skillhub.auth.oauth.SkillHubOAuth2AuthorizationRequestResolver;
+import com.iflytek.skillhub.auth.policy.RouteSecurityPolicyRegistry;
+import com.iflytek.skillhub.auth.token.ApiTokenAuthenticationFilter;
+import com.iflytek.skillhub.auth.token.ApiTokenScopeFilter;
 
 /**
  * Central Spring Security configuration for browser sessions, API tokens, and
@@ -40,11 +40,11 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 public class SecurityConfig {
     private static final String CONTENT_SECURITY_POLICY = String.join("; ",
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+            "script-src 'self'",
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
             "img-src 'self' data: blob: https:",
             "font-src 'self' data: https://fonts.gstatic.com",
-            "connect-src 'self' ws: wss: http://localhost:* https://localhost:*",
+            "connect-src 'self'",
             "object-src 'none'",
             "base-uri 'self'",
             "frame-ancestors 'none'",
