@@ -160,6 +160,8 @@ export function PublishPage() {
               value={normalizeSelectValue(namespaceSlug) ?? EMPTY_NAMESPACE_VALUE}
               onValueChange={(value) => {
                 setNamespaceSlug(value === EMPTY_NAMESPACE_VALUE ? '' : value)
+                console.log(value)
+                setVisibility(value === 'global' ? 'PUBLIC' : 'NAMESPACE_ONLY')
               }}
             >
               <SelectTrigger id="namespace">
