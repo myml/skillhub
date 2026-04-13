@@ -66,7 +66,7 @@ public class IdentityBindingService {
         if (binding != null) {
             user = userRepo.findById(binding.getUserId())
                 .orElseThrow(() -> new IllegalStateException("User not found for binding"));
-            user.setDisplayName(claims.providerLogin());
+            user.setDisplayName(claims.email().contains("@") ? claims.email().split("@")[0] : claims.providerLogin());
             if (claims.email() != null) user.setEmail(claims.email());
             if (claims.extra().get("avatar_url") != null) {
                 user.setAvatarUrl((String) claims.extra().get("avatar_url"));
@@ -75,7 +75,7 @@ public class IdentityBindingService {
         } else {
             user = new UserAccount(
                 "usr_" + UUID.randomUUID(),
-                claims.providerLogin(),
+                claims.email().contains("@") ? claims.email().split("@")[0] : claims.providerLogin(),
                 claims.email(),
                 (String) claims.extra().get("avatar_url")
             );
