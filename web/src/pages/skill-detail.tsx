@@ -292,7 +292,7 @@ export function SkillDetailPage() {
   }
 
   const handleDownload = async () => {
-    if (!user) {
+    if (namespace!='global' && !user) {
       requireLogin()
       return
     }
