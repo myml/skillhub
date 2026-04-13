@@ -1,12 +1,13 @@
 package com.iflytek.skillhub.domain.review;
 
+import java.util.Map;
+import java.util.Set;
+
+import org.springframework.stereotype.Component;
+
 import com.iflytek.skillhub.domain.namespace.NamespaceRole;
 import com.iflytek.skillhub.domain.namespace.NamespaceType;
 import com.iflytek.skillhub.domain.skill.Skill;
-import org.springframework.stereotype.Component;
-
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Centralizes review and promotion permission checks derived from namespace and platform roles.
@@ -27,9 +28,6 @@ public class ReviewPermissionChecker {
                              NamespaceType namespaceType,
                              Map<Long, NamespaceRole> userNamespaceRoles,
                              Set<String> platformRoles) {
-        if (task.getSubmittedBy().equals(userId)) {
-            return platformRoles.contains("SUPER_ADMIN");
-        }
         return canReviewNamespace(task.getNamespaceId(), namespaceType, userNamespaceRoles, platformRoles);
     }
 
