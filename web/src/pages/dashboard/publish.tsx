@@ -160,7 +160,6 @@ export function PublishPage() {
               value={normalizeSelectValue(namespaceSlug) ?? EMPTY_NAMESPACE_VALUE}
               onValueChange={(value) => {
                 setNamespaceSlug(value === EMPTY_NAMESPACE_VALUE ? '' : value)
-                console.log(value)
                 setVisibility(value === 'global' ? 'PUBLIC' : 'NAMESPACE_ONLY')
               }}
             >
@@ -179,7 +178,7 @@ export function PublishPage() {
           )}
         </div>
 
-        <div className="space-y-3">
+        <div className="space-y-3 hidden">
           <Label htmlFor="visibility" className="text-sm font-semibold font-heading">{t('publish.visibility')}</Label>
           <Select value={visibility} onValueChange={setVisibility}>
             <SelectTrigger id="visibility">
