@@ -180,17 +180,12 @@ export function Layout() {
                 </h4>
                 <ul className="space-y-2 text-sm">
                   <li>
-                    <a href="#" className="hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--text-secondary))' }}>
+                    <a href="https://zread.ai/iflytek/skillhub/17-openclaw-cli-integration" className="hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--text-secondary))' }}>
                       {t('footer.docs')}
                     </a>
                   </li>
                   <li>
-                    <a href="#" className="hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--text-secondary))' }}>
-                      {t('footer.api')}
-                    </a>
-                  </li>
-                  <li>
-                    <a href="#" className="hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--text-secondary))' }}>
+                    <a href="https://bbs.deepin.org.cn" className="hover:opacity-80 transition-opacity" style={{ color: 'hsl(var(--text-secondary))' }}>
                       {t('footer.community')}
                     </a>
                   </li>
