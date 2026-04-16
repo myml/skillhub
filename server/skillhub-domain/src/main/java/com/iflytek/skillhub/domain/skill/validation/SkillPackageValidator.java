@@ -115,7 +115,9 @@ public class SkillPackageValidator {
     }
 
     private boolean hasAllowedExtension(String normalizedPath) {
-        return true;
+        if ("true".equalsIgnoreCase(System.getenv("SKILLHUB_SKIP_EXTENSION_CHECK"))) {
+            return true;
+        }
         return allowedExtensions.stream().anyMatch(normalizedPath::endsWith);
     }
 

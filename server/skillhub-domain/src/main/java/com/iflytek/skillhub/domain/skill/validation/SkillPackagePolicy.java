@@ -68,7 +68,9 @@ public final class SkillPackagePolicy {
     }
 
     public static boolean hasAllowedExtension(String path) {
-        return true;
+        if ("true".equalsIgnoreCase(System.getenv("SKILLHUB_SKIP_EXTENSION_CHECK"))) {
+            return true;
+        }
         return ALLOWED_EXTENSIONS.stream().anyMatch(path::endsWith);
     }
 
