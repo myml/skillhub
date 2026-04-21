@@ -45,6 +45,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        if ("true".equalsIgnoreCase(System.getenv("SKILLHUB_DISABLE_RATE_LIMIT"))) {
+            return true;
+        }
         if (!(handler instanceof HandlerMethod)) {
             return true;
         }
