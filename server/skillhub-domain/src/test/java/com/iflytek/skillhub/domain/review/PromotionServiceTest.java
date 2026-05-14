@@ -88,6 +88,8 @@ class PromotionServiceTest {
         sv.setManifestJson("{\"version\":\"1.0.0\"}");
         sv.setFileCount(3);
         sv.setTotalSize(1024L);
+        sv.setBundleReady(true);
+        sv.setDownloadReady(true);
         return sv;
     }
 
@@ -450,6 +452,8 @@ class PromotionServiceTest {
             assertEquals(3, newVersion.getFileCount());
             assertEquals(1024L, newVersion.getTotalSize());
             assertEquals(Instant.now(CLOCK), newVersion.getPublishedAt());
+            assertTrue(newVersion.isBundleReady());
+            assertTrue(newVersion.isDownloadReady());
 
             // Verify files copied
             @SuppressWarnings("unchecked")

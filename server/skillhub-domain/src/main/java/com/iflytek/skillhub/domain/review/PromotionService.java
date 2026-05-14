@@ -224,6 +224,8 @@ public class PromotionService {
         newVersion.setManifestJson(sourceVersion.getManifestJson());
         newVersion.setFileCount(sourceVersion.getFileCount());
         newVersion.setTotalSize(sourceVersion.getTotalSize());
+        newVersion.setBundleReady(sourceVersion.isBundleReady());
+        newVersion.setDownloadReady(sourceVersion.isDownloadReady());
         newVersion = skillVersionRepository.save(newVersion);
 
         // Update skill's latest version
