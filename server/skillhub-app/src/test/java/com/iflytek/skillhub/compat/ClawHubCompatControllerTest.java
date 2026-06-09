@@ -65,6 +65,7 @@ class ClawHubCompatControllerTest {
                                 2,
                                 "global",
                                 Instant.parse("2026-03-13T09:00:00Z"),
+                                Instant.parse("2026-03-13T08:00:00Z"),
                                 false,
                                 new SkillLifecycleVersionResponse(11L, "1.2.0", "PUBLISHED"),
                                 new SkillLifecycleVersionResponse(11L, "1.2.0", "PUBLISHED"),

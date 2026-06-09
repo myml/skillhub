@@ -15,6 +15,7 @@ public record SkillSummaryResponse(
         Integer ratingCount,
         String namespace,
         Instant updatedAt,
+        Instant createdAt,
         boolean canSubmitPromotion,
         SkillLifecycleVersionResponse headlineVersion,
         SkillLifecycleVersionResponse publishedVersion,

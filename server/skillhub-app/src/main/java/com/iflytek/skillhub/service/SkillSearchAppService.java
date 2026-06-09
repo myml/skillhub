@@ -189,6 +189,7 @@ public class SkillSearchAppService {
                 skill.getRatingCount(),
                 namespaceSlug,
                 skill.getUpdatedAt(),
+                skill.getCreatedAt(),
                 false,
                 toLifecycleVersion(projection.headlineVersion()),
                 toLifecycleVersion(projection.publishedVersion()),
