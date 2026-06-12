@@ -2,12 +2,16 @@ package com.iflytek.skillhub.compat;
 
 import com.iflytek.skillhub.domain.namespace.Namespace;
 import com.iflytek.skillhub.domain.namespace.NamespaceRepository;
+import com.iflytek.skillhub.domain.namespace.NamespaceType;
 import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
 import com.iflytek.skillhub.domain.skill.Skill;
 import com.iflytek.skillhub.domain.skill.SkillRepository;
 import com.iflytek.skillhub.domain.skill.SkillVersion;
 import com.iflytek.skillhub.domain.skill.SkillVersionRepository;
+import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.domain.skill.service.SkillSlugResolutionService;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -34,8 +38,20 @@ public class CompatSkillLookupService {
     }
 
     public CompatSkillContext findByLegacySlug(String slug) {
-        Skill skill = skillRepository.findBySlug(slug).stream().findFirst()
-                .orElseThrow(() -> new DomainNotFoundException("error.skill.notFound", slug));
+        List<Skill> skills = skillRepository.findBySlug(slug);
+        if (skills.isEmpty()) {
+            throw new DomainNotFoundException("error.skill.notFound", slug);
+        }
+        Skill skill = skills.stream()
+                .min(Comparator.<Skill>comparingInt(s -> {
+                    Namespace ns = namespaceRepository.findById(s.getNamespaceId()).orElse(null);
+                    int score = 0;
+                    if (s.getVisibility() == SkillVisibility.PUBLIC) score += 100;
+                    if (ns != null && ns.getType() == NamespaceType.GLOBAL) score += 50;
+                    if (s.getLatestVersionId() != null) score += 10;
+                    return -score;
+                }))
+                .orElse(skills.get(0));
         Namespace namespace = namespaceRepository.findById(skill.getNamespaceId())
                 .orElseThrow(() -> new DomainNotFoundException("error.namespace.notFound", skill.getNamespaceId()));
         return new CompatSkillContext(namespace, skill, findLatestVersion(skill));
