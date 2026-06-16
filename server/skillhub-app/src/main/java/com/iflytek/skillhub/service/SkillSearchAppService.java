@@ -7,6 +7,8 @@ import com.iflytek.skillhub.domain.namespace.NamespaceService;
 import com.iflytek.skillhub.domain.skill.Skill;
 import com.iflytek.skillhub.domain.skill.SkillRepository;
 import com.iflytek.skillhub.domain.skill.service.SkillLifecycleProjectionService;
+import com.iflytek.skillhub.domain.user.UserAccount;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.dto.SkillSummaryResponse;
 import com.iflytek.skillhub.search.SearchQuery;
 import com.iflytek.skillhub.search.SearchQueryService;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -36,18 +39,21 @@ public class SkillSearchAppService {
     private final NamespaceRepository namespaceRepository;
     private final NamespaceService namespaceService;
     private final SkillLifecycleProjectionService skillLifecycleProjectionService;
+    private final UserAccountRepository userAccountRepository;
 
     public SkillSearchAppService(
             SearchQueryService searchQueryService,
             SkillRepository skillRepository,
             NamespaceRepository namespaceRepository,
             NamespaceService namespaceService,
-            SkillLifecycleProjectionService skillLifecycleProjectionService) {
+            SkillLifecycleProjectionService skillLifecycleProjectionService,
+            UserAccountRepository userAccountRepository) {
         this.searchQueryService = searchQueryService;
         this.skillRepository = skillRepository;
         this.namespaceRepository = namespaceRepository;
         this.namespaceService = namespaceService;
         this.skillLifecycleProjectionService = skillLifecycleProjectionService;
+        this.userAccountRepository = userAccountRepository;
     }
 
     public record SearchResponse(
@@ -161,19 +167,32 @@ public class SkillSearchAppService {
                 .collect(Collectors.toMap(Namespace::getId, Function.identity()));
         Map<Long, String> namespaceSlugsById = namespacesById.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getSlug()));
+        Map<String, String> ownerDisplayNamesById = matchedSkills.stream()
+                .map(Skill::getOwnerId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> userAccountRepository.findById(id)
+                                .map(UserAccount::getDisplayName)
+                                .filter(name -> name != null && !name.isBlank())
+                                .orElse(null)
+                ));
+
         Map<Long, SkillLifecycleProjectionService.Projection> projectionsBySkillId =
                 skillLifecycleProjectionService.projectPublishedSummaries(matchedSkills);
 
         return skillIds.stream()
                 .map(skillsById::get)
                 .filter(java.util.Objects::nonNull)
-                .map(skill -> toSummaryResponse(skill, namespaceSlugsById, projectionsBySkillId.get(skill.getId())))
+                .map(skill -> toSummaryResponse(skill, namespaceSlugsById, ownerDisplayNamesById, projectionsBySkillId.get(skill.getId())))
                 .toList();
     }
 
     private SkillSummaryResponse toSummaryResponse(
             Skill skill,
             Map<Long, String> namespaceSlugsById,
+            Map<String, String> ownerDisplayNamesById,
             SkillLifecycleProjectionService.Projection projection) {
         String namespaceSlug = namespaceSlugsById.get(skill.getNamespaceId());
 
@@ -190,6 +209,8 @@ public class SkillSearchAppService {
                 namespaceSlug,
                 skill.getUpdatedAt(),
                 skill.getCreatedAt(),
+                skill.getOwnerId(),
+                ownerDisplayNamesById.get(skill.getOwnerId()),
                 false,
                 toLifecycleVersion(projection.headlineVersion()),
                 toLifecycleVersion(projection.publishedVersion()),

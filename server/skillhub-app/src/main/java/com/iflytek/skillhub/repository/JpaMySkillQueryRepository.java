@@ -75,6 +75,8 @@ public class JpaMySkillQueryRepository implements MySkillQueryRepository {
                 namespace != null ? namespace.getSlug() : null,
                 skill.getUpdatedAt(),
                 skill.getCreatedAt(),
+                skill.getOwnerId(),
+                null,
                 canSubmitPromotion(skill, publishedVersion, namespace),
                 toLifecycleVersion(headlineVersion),
                 toLifecycleVersion(publishedVersion),

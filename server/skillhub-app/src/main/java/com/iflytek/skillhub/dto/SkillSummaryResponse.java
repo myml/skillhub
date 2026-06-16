@@ -16,6 +16,8 @@ public record SkillSummaryResponse(
         String namespace,
         Instant updatedAt,
         Instant createdAt,
+        String ownerId,
+        String ownerDisplayName,
         boolean canSubmitPromotion,
         SkillLifecycleVersionResponse headlineVersion,
         SkillLifecycleVersionResponse publishedVersion,

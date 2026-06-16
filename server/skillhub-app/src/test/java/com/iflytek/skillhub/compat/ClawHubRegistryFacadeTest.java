@@ -51,6 +51,8 @@ class ClawHubRegistryFacadeTest {
                                 "global",
                                 updatedAt,
                                 Instant.parse("2026-03-18T08:00:00Z"),
+                                "owner-1",
+                                null,
                                 false,
                                 new SkillLifecycleVersionResponse(11L, "1.0.0", "PUBLISHED"),
                                 new SkillLifecycleVersionResponse(11L, "1.0.0", "PUBLISHED"),

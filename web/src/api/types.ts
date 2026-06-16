@@ -141,6 +141,8 @@ export interface SkillSummary {
   ratingCount: number
   namespace: string
   updatedAt: string
+  ownerId?: string
+  ownerDisplayName?: string
   canSubmitPromotion: boolean
   headlineVersion?: SkillLifecycleVersion
   publishedVersion?: SkillLifecycleVersion

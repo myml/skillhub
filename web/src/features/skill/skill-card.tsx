@@ -5,6 +5,8 @@ import { Card } from '@/shared/ui/card'
 import { NamespaceBadge } from '@/shared/components/namespace-badge'
 import { getHeadlineVersion } from '@/shared/lib/skill-lifecycle'
 import { formatCompactCount } from '@/shared/lib/number-format'
+import { formatLocalDateTime } from '@/shared/lib/date-time'
+import { useTranslation } from 'react-i18next'
 import { Bookmark } from 'lucide-react'
 
 interface SkillCardProps {
@@ -21,6 +23,7 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
   const { data: starStatus } = useStar(skill.id, highlightStarred && isAuthenticated)
   const showStarredHighlight = highlightStarred && isAuthenticated && starStatus?.starred
   const headlineVersion = getHeadlineVersion(skill)
+  const { i18n } = useTranslation()
 
   return (
     <Card
@@ -72,6 +75,15 @@ export function SkillCard({ skill, onClick, highlightStarred = true }: SkillCard
                 {skill.ratingAvg.toFixed(1)}
               </span>
             )}
+          </div>
+
+          <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              作者 {skill.ownerDisplayName ?? skill.ownerId ?? '—'}
+            </span>
+            <span>
+              更新于 {formatLocalDateTime(skill.updatedAt, i18n.language, { dateStyle: 'short' })}
+            </span>
           </div>
         </div>
       </Card>
