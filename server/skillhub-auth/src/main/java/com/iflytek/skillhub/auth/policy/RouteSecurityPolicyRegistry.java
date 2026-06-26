@@ -107,7 +107,8 @@ public class RouteSecurityPolicyRegistry {
             ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/skills", "skill:publish"),
             ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/skills/*/publish", "skill:publish"),
             ApiTokenPolicy.require(HttpMethod.POST, "/api/web/skills/*/publish", "skill:publish"),
-            ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/publish", "skill:publish")
+            ApiTokenPolicy.require(HttpMethod.POST, "/api/v1/publish", "skill:publish"),
+            ApiTokenPolicy.allow(null, "/api/**")
     );
 
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
