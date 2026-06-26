@@ -11,6 +11,7 @@ import com.iflytek.skillhub.domain.skill.VisibilityChecker;
 import com.iflytek.skillhub.domain.skill.SkillVersionRepository;
 import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.domain.skill.service.SkillLifecycleProjectionService;
+import com.iflytek.skillhub.domain.user.UserAccountRepository;
 import com.iflytek.skillhub.search.SearchQueryService;
 import com.iflytek.skillhub.search.SearchResult;
 import org.mockito.ArgumentCaptor;
@@ -49,6 +50,9 @@ class SkillSearchAppServiceTest {
     @Mock
     private NamespaceService namespaceService;
 
+    @Mock
+    private UserAccountRepository userAccountRepository;
+
     private SkillSearchAppService service;
 
     @BeforeEach
@@ -58,7 +62,8 @@ class SkillSearchAppServiceTest {
                 skillRepository,
                 namespaceRepository,
                 namespaceService,
-                new SkillLifecycleProjectionService(skillVersionRepository)
+                new SkillLifecycleProjectionService(skillVersionRepository),
+                userAccountRepository
         );
     }
 
