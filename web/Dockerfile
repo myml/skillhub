@@ -2,9 +2,12 @@ FROM node:22-alpine AS build
 RUN corepack enable
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile || \
+    pnpm approve-builds esbuild && pnpm install --frozen-lockfile
 COPY . .
-RUN pnpm build
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm build
 
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
