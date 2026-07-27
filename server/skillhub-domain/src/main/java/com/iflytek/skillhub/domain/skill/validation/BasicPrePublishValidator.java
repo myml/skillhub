@@ -1,7 +1,5 @@
 package com.iflytek.skillhub.domain.skill.validation;
 
-import org.springframework.stereotype.Component;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +11,6 @@ import java.util.regex.Pattern;
  * Default pre-publish validator that scans text-like package files for likely secrets and
  * accidental real credentials.
  */
-@Component
 public class BasicPrePublishValidator implements PrePublishValidator {
 
     private static final Pattern PLACEHOLDER_VALUE = Pattern.compile(
