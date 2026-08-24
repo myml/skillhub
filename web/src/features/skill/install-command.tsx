@@ -29,8 +29,7 @@ export function getBaseUrl(): string {
 }
 
 export function buildInstallCommand(namespace: string, slug: string, baseUrl: string): string {
-  const installTarget = buildInstallTarget(namespace, slug)
-  return `npx clawhub install ${installTarget} --registry ${baseUrl}`
+  return `npx @uniontech/skills add ${baseUrl}/space/${namespace}/${slug}`
 }
 
 export function InstallCommand({ namespace, slug }: InstallCommandProps) {
