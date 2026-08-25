@@ -62,7 +62,7 @@ public class CompatSkillLookupService {
                     if (ns != null && ns.getType() == NamespaceType.GLOBAL) score += 50;
                     if (s.getLatestVersionId() != null) score += 10;
                     return -score;
-                }))
+                }).thenComparing(Skill::getId))
                 .orElse(skills.get(0));
         Namespace namespace = namespacesById.get(skill.getNamespaceId());
         if (namespace == null) {
