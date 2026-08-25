@@ -13,6 +13,8 @@ import com.iflytek.skillhub.domain.skill.service.SkillSlugResolutionService;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 /**
@@ -42,9 +44,18 @@ public class CompatSkillLookupService {
         if (skills.isEmpty()) {
             throw new DomainNotFoundException("error.skill.notFound", slug);
         }
+        // Batch-fetch all candidate namespaces in a single query to avoid N+1 lookups.
+        List<Long> namespaceIds = skills.stream()
+                .map(Skill::getNamespaceId)
+                .distinct()
+                .toList();
+        Map<Long, Namespace> namespacesById = namespaceIds.isEmpty()
+                ? Map.of()
+                : namespaceRepository.findByIdIn(namespaceIds).stream()
+                .collect(Collectors.toMap(Namespace::getId, Function.identity()));
         Skill skill = skills.stream()
                 .min(Comparator.<Skill>comparingInt(s -> {
-                    Namespace ns = namespaceRepository.findById(s.getNamespaceId()).orElse(null);
+                    Namespace ns = namespacesById.get(s.getNamespaceId());
                     int score = 0;
                     if (s.getVisibility() == SkillVisibility.PUBLIC) score += 100;
                     if (ns != null && ns.getType() == NamespaceType.GLOBAL) score += 50;
@@ -52,8 +63,10 @@ public class CompatSkillLookupService {
                     return -score;
                 }))
                 .orElse(skills.get(0));
-        Namespace namespace = namespaceRepository.findById(skill.getNamespaceId())
-                .orElseThrow(() -> new DomainNotFoundException("error.namespace.notFound", skill.getNamespaceId()));
+        Namespace namespace = namespacesById.get(skill.getNamespaceId());
+        if (namespace == null) {
+            throw new DomainNotFoundException("error.namespace.notFound", skill.getNamespaceId());
+        }
         return new CompatSkillContext(namespace, skill, findLatestVersion(skill));
     }
 
