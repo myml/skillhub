@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { GitBranch } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { UploadZone } from '@/features/publish/upload-zone'
 import { Button } from '@/shared/ui/button'
@@ -16,6 +17,7 @@ import { Card } from '@/shared/ui/card'
 import { usePublishSkill } from '@/shared/hooks/use-skill-queries'
 import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
+import { useAuth } from '@/features/auth/use-auth'
 import { toast } from '@/shared/lib/toast'
 import { ApiError } from '@/api/client'
 
@@ -57,9 +59,19 @@ function isFrontmatterFailureMessage(message?: string): boolean {
 
 const EMPTY_NAMESPACE_VALUE = '__select_namespace__'
 
+/**
+ * Who may open the git source admin page. Mirrors the endpoint's
+ * {@code hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')} so the button never leads to a 403.
+ */
+export function canManageGitSources(hasRole: (role: string) => boolean): boolean {
+  return hasRole('SKILL_ADMIN') || hasRole('SUPER_ADMIN')
+}
+
 export function PublishPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { hasRole } = useAuth()
+  const canManageSources = canManageGitSources(hasRole)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [namespaceSlug, setNamespaceSlug] = useState<string>('')
   const [visibility, setVisibility] = useState<string>('PUBLIC')
@@ -136,7 +148,18 @@ export function PublishPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-fade-up">
-      <DashboardPageHeader title={t('publish.title')} subtitle={t('publish.subtitle')} />
+      <DashboardPageHeader
+        title={t('publish.title')}
+        subtitle={t('publish.subtitle')}
+        actions={
+          canManageSources ? (
+            <Button variant="outline" onClick={() => navigate({ to: '/admin/sources' })}>
+              <GitBranch className="mr-2 h-4 w-4" />
+              {t('publish.manageGitSources')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       <Card className="p-4 bg-blue-500/5 border-blue-500/20">
         <div className="flex items-start gap-3">

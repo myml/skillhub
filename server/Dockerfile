@@ -22,6 +22,8 @@ RUN --mount=type=cache,target=/root/.m2/repository \
 
 # ---- Runtime Stage ----
 FROM eclipse-temurin:21-jre-alpine
+# git is required to sync git repositories; openssh-client covers ssh:// remotes.
+RUN apk add --no-cache git openssh-client
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 

@@ -67,6 +67,7 @@ const LoginPage = createLazyRouteComponent(() => import('@/pages/login'), 'Login
 const RegisterPage = createLazyRouteComponent(() => import('@/pages/register'), 'RegisterPage')
 const PrivacyPolicyPage = createLazyRouteComponent(() => import('@/pages/privacy'), 'PrivacyPolicyPage')
 const SearchPage = createLazyRouteComponent(() => import('@/pages/search'), 'SearchPage')
+const StatsPage = createLazyRouteComponent(() => import('@/pages/stats'), 'StatsPage')
 const TermsOfServicePage = createLazyRouteComponent(() => import('@/pages/terms'), 'TermsOfServicePage')
 const NamespacePage = createLazyRouteComponent(() => import('@/pages/namespace'), 'NamespacePage')
 const SkillDetailPage = createLazyRouteComponent(() => import('@/pages/skill-detail'), 'SkillDetailPage')
@@ -132,6 +133,11 @@ const AdminLabelsPage = createRoleProtectedRouteComponent(
   () => import('@/pages/admin/labels'),
   'AdminLabelsPage',
   ['SUPER_ADMIN'],
+)
+const AdminSourcesPage = createRoleProtectedRouteComponent(
+  () => import('@/pages/admin/sources'),
+  'AdminSourcesPage',
+  ['SUPER_ADMIN', 'SKILL_ADMIN'],
 )
 
 function DefaultNotFound() {
@@ -213,6 +219,12 @@ const termsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'terms',
   component: TermsOfServicePage,
+})
+
+const statsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'stats',
+  component: StatsPage,
 })
 
 const namespaceRoute = createRoute({
@@ -395,6 +407,13 @@ const adminLabelsRoute = createRoute({
   component: AdminLabelsPage,
 })
 
+const adminSourcesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'admin/sources',
+  beforeLoad: requireAuth,
+  component: AdminSourcesPage,
+})
+
 const routeTree = rootRoute.addChildren([
   landingRoute,
   homeRoute,
@@ -404,6 +423,7 @@ const routeTree = rootRoute.addChildren([
   privacyRoute,
   searchRoute,
   termsRoute,
+  statsRoute,
   namespaceRoute,
   skillDetailRoute,
   dashboardRoute,
@@ -428,6 +448,7 @@ const routeTree = rootRoute.addChildren([
   adminUsersRoute,
   adminAuditLogRoute,
   adminLabelsRoute,
+  adminSourcesRoute,
 ])
 
 export const router = createRouter({

@@ -2,6 +2,8 @@
 # Expects pre-built JAR at skillhub-app/target/*.jar
 # Used by: make staging (local development workflow)
 FROM eclipse-temurin:21-jre-alpine
+# git is required to sync git repositories; openssh-client covers ssh:// remotes.
+RUN apk add --no-cache git openssh-client
 
 RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app

@@ -61,10 +61,25 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { PublishPage } from './publish'
+import { PublishPage, canManageGitSources } from './publish'
 
 describe('PublishPage', () => {
   it('exports a named component function', () => {
     expect(typeof PublishPage).toBe('function')
+  })
+})
+
+describe('canManageGitSources', () => {
+  const roles = (granted: string[]) => (role: string) => granted.includes(role)
+
+  it('shows the git source shortcut to the roles the endpoint accepts', () => {
+    expect(canManageGitSources(roles(['SKILL_ADMIN']))).toBe(true)
+    expect(canManageGitSources(roles(['SUPER_ADMIN']))).toBe(true)
+  })
+
+  it('hides it from everybody else, who would only get a 403', () => {
+    expect(canManageGitSources(roles([]))).toBe(false)
+    expect(canManageGitSources(roles(['USER']))).toBe(false)
+    expect(canManageGitSources(roles(['NAMESPACE_ADMIN', 'AUDITOR', 'USER_ADMIN']))).toBe(false)
   })
 })

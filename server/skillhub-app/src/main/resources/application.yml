@@ -91,6 +91,15 @@ skillhub:
     base-url: ${SKILLHUB_PUBLIC_BASE_URL:}
   access-policy:
     mode: OPEN
+  gitsync:
+    # One bare git mirror per source: syncing clones/fetches the repository and
+    # then reads trees and blobs locally, so give this directory room for the
+    # repositories being synced.
+    work-dir: ${SKILLHUB_GITSYNC_WORK_DIR:${STORAGE_BASE_PATH:/tmp/skillhub-storage}/git-sources}
+    git-binary: ${SKILLHUB_GITSYNC_GIT_BINARY:git}
+    command-timeout: ${SKILLHUB_GITSYNC_COMMAND_TIMEOUT:10m}
+    # 1 keeps only the synced commit; 0 downloads full history.
+    fetch-depth: ${SKILLHUB_GITSYNC_FETCH_DEPTH:1}
   storage:
     provider: ${SKILLHUB_STORAGE_PROVIDER:local}
     local:

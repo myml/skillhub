@@ -1,0 +1,84 @@
+name: Publish Deepin Images
+
+# Pushes to the `deepin` branch build and push the two application images to
+# GHCR. Registry credentials are not needed: the workflow uses the built-in
+# GITHUB_TOKEN. The scanner image is not part of this workflow; see
+# .github/workflows/publish-images.yml for the release pipeline.
+on:
+  push:
+    branches: [deepin]
+  workflow_dispatch:
+
+concurrency:
+  group: publish-deepin-images-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # Only the architecture the deployment runs on. Set the DEEPIN_PLATFORMS
+  # repository variable to "linux/amd64,linux/arm64" to publish both.
+  DOCKER_PLATFORMS: ${{ vars.DEEPIN_PLATFORMS || 'linux/amd64' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            context: ./server
+            dockerfile: ./server/Dockerfile
+            image: skillhub-server
+          - name: web
+            context: ./web
+            dockerfile: ./web/Dockerfile
+            image: skillhub-web
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up QEMU
+        if: ${{ contains(env.DOCKER_PLATFORMS, 'arm64') }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          # The moving `deepin` tag is what the deployment follows. Add
+          # `type=sha,format=short,prefix=deepin-` here for a per-commit tag.
+          tags: |
+            type=raw,value=deepin
+
+      # If the `apk add` step of the server image ever fails with
+      # "v2 database format error" or stalls, add `network: host` below: the
+      # Alpine CDN transfer was unreliable through a NATed network.
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: true
+          provenance: false
+          sbom: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=deepin-${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=deepin-${{ matrix.name }}

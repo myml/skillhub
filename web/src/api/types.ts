@@ -443,3 +443,136 @@ export interface NotificationPreferenceItem {
 export interface NotificationUnreadCount {
   count: number
 }
+
+// Download statistics types
+export interface SkillDownloadDailyPoint {
+  day: string
+  count: number
+}
+
+export interface SkillDownloadDimensionCount {
+  key: string
+  count: number
+}
+
+export interface SkillDownloadStats {
+  skillId: number
+  from: string
+  to: string
+  total: number
+  daily: SkillDownloadDailyPoint[]
+  channels: SkillDownloadDimensionCount[]
+  versions: SkillDownloadDimensionCount[]
+}
+
+export interface SkillDownloadTopItem {
+  skillId: number
+  namespace: string
+  slug: string
+  displayName: string
+  count: number
+}
+
+export interface GitSource {
+  id: number
+  repoUrl: string
+  webUrl: string
+  repoPath: string
+  defaultRef: string | null
+  subpath: string | null
+  namespaceSlug: string
+  /** Skills currently imported into that namespace from this source. */
+  importedSkillCount: number
+  /** The credential itself is never returned; only whether one is stored. */
+  hasCredential: boolean
+  credentialKind: 'TOKEN' | 'SSH_KEY' | null
+  /** Set when the source was created; the creator publishes, it cannot be changed. */
+  publisherId: string | null
+  syncIntervalMinutes: number
+  enabled: boolean
+  /** Derived from the namespace: GLOBAL imports as PUBLIC, a team namespace as NAMESPACE_ONLY. */
+  defaultVisibility: string
+  createdBy: string
+  createdAt: string
+  updatedAt: string
+  lastPlannedAt: string | null
+  lastSyncAt: string | null
+  lastSyncStatus: string | null
+  lastSyncMessage: string | null
+}
+
+export interface GitSourceInput {
+  repoUrl: string
+  defaultRef?: string | null
+  subpath?: string | null
+  namespaceSlug: string
+  credential?: string | null
+  syncIntervalMinutes?: number
+  enabled?: boolean
+}
+
+export interface GitSkippedFile {
+  path: string
+  reason: string
+}
+
+export interface GitImportPlanItem {
+  itemPath: string
+  skillName: string
+  treeSha: string
+  changeType: 'ADDED' | 'CHANGED' | 'UNCHANGED' | 'REMOVED'
+  previousTreeSha: string | null
+  skillId: number | null
+  fileCount: number
+  skippedFiles: GitSkippedFile[]
+}
+
+export interface GitImportPlan {
+  sourceId: number
+  ref: string
+  commitSha: string
+  subpath: string | null
+  plannedAt: string
+  added: number
+  changed: number
+  unchanged: number
+  removed: number
+  items: GitImportPlanItem[]
+}
+
+export interface GitSyncRun {
+  id: number
+  sourceId: number
+  triggerType: string
+  status: string
+  plannedCount: number
+  addedCount: number
+  changedCount: number
+  unchangedCount: number
+  removedCount: number
+  failedCount: number
+  message: string | null
+  startedAt: string
+  finishedAt: string | null
+}
+
+export interface GitSourceItem {
+  itemPath: string
+  skillName: string
+  treeSha: string
+  commitSha: string | null
+  state: string
+  skillId: number | null
+  lastSeenAt: string | null
+  lastSyncedAt: string | null
+}
+
+export interface SkillSource {
+  repoUrl: string
+  webUrl: string
+  itemPath: string
+  ref: string
+  commitSha: string
+  treeSha: string
+  syncedAt: string
+}

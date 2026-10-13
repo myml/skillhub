@@ -34,6 +34,8 @@ import { NamespaceBadge } from '@/shared/components/namespace-badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/shared/ui/tabs'
 import { Button } from '@/shared/ui/button'
 import { Card } from '@/shared/ui/card'
+import { SkillDownloadStatsCard } from '@/features/skill/skill-download-stats'
+import { SkillSourceCard } from '@/features/skill/skill-source-card'
 import { ConfirmDialog } from '@/shared/components/confirm-dialog'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { Input } from '@/shared/ui/input'
@@ -998,6 +1000,12 @@ export function SkillDetailPage() {
             )}
           </div>
         </Card>
+
+        <SkillSourceCard namespace={namespace} slug={slug} enabled={skillReady} />
+
+        {(skill.visibility === 'PUBLIC' || skill.canManageLifecycle) && (
+          <SkillDownloadStatsCard skillId={skill.id} enabled={skillReady} />
+        )}
 
         {publishedVersion && canInteract && (
           <Card className="p-5 space-y-4">

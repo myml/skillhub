@@ -38,6 +38,14 @@ import type {
   AdminLabelInput,
   LabelDefinition,
   LabelItem,
+  SkillDownloadStats,
+  SkillDownloadTopItem,
+  GitImportPlan,
+  GitSource,
+  GitSourceInput,
+  GitSourceItem,
+  GitSyncRun,
+  SkillSource,
 } from './types'
 import { ApiError } from '@/shared/lib/api-error'
 import i18n from '@/i18n/config'
@@ -1211,5 +1219,106 @@ export const notificationApi = {
       }),
       body: JSON.stringify({ preferences }),
     })
+  },
+}
+
+function buildQueryString(params: Record<string, string | number | undefined>): string {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') {
+      query.set(key, String(value))
+    }
+  }
+  const queryString = query.toString()
+  return queryString ? `?${queryString}` : ''
+}
+
+export const statsApi = {
+  async getTopSkills(params: { days?: number; limit?: number } = {}) {
+    const queryString = buildQueryString({ days: params.days, limit: params.limit })
+    return fetchJson<SkillDownloadTopItem[]>(`${WEB_API_PREFIX}/stats/top${queryString}`)
+  },
+
+  async getSkillStats(skillId: number, params: { from?: string; to?: string } = {}) {
+    const queryString = buildQueryString({ from: params.from, to: params.to })
+    return fetchJson<SkillDownloadStats>(`${WEB_API_PREFIX}/stats/skills/${skillId}${queryString}`)
+  },
+}
+
+export const gitSourceApi = {
+  async list(): Promise<GitSource[]> {
+    return fetchJson<GitSource[]>('/api/v1/admin/git-sources')
+  },
+
+  async get(id: number): Promise<GitSource> {
+    return fetchJson<GitSource>(`/api/v1/admin/git-sources/${id}`)
+  },
+
+  async create(request: GitSourceInput): Promise<GitSource> {
+    return fetchJson<GitSource>('/api/v1/admin/git-sources', {
+      method: 'POST',
+      headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(request),
+    })
+  },
+
+  async update(id: number, request: GitSourceInput): Promise<GitSource> {
+    return fetchJson<GitSource>(`/api/v1/admin/git-sources/${id}`, {
+      method: 'PUT',
+      headers: await ensureCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify(request),
+    })
+  },
+
+  async remove(id: number): Promise<void> {
+    await fetchJson<void>(`/api/v1/admin/git-sources/${id}`, {
+      method: 'DELETE',
+      headers: await ensureCsrfHeaders(),
+    })
+  },
+
+  async listItems(id: number): Promise<GitSourceItem[]> {
+    return fetchJson<GitSourceItem[]>(`/api/v1/admin/git-sources/${id}/items`)
+  },
+
+  /**
+   * Dry run: what a sync would add, change, or remove. Never modifies the registry.
+   */
+  async plan(id: number): Promise<GitImportPlan> {
+    return fetchJson<GitImportPlan>(`/api/v1/admin/git-sources/${id}/plan`, {
+      method: 'POST',
+      headers: await ensureCsrfHeaders(),
+    })
+  },
+
+  async sync(id: number): Promise<GitSyncRun> {
+    return fetchJson<GitSyncRun>(`/api/v1/admin/git-sources/${id}/sync`, {
+      method: 'POST',
+      headers: await ensureCsrfHeaders(),
+    })
+  },
+
+  async listRuns(id: number, limit = 20): Promise<GitSyncRun[]> {
+    const queryString = buildQueryString({ limit })
+    return fetchJson<GitSyncRun[]>(`/api/v1/admin/git-sources/${id}/runs${queryString}`)
+  },
+}
+
+export const skillSourceApi = {
+  /**
+   * Provenance of a published skill. Resolves to null when the skill was not
+   * created by a git source, which is the common case and not an error.
+   */
+  async getSource(namespace: string, slug: string): Promise<SkillSource | null> {
+    try {
+      return await fetchJson<SkillSource>(
+        `${WEB_API_PREFIX}/skills/${normalizeNamespaceSlug(namespace)}/${encodeURIComponent(slug)}/source`,
+      )
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        return null
+      }
+      throw error
+    }
   },
 }

@@ -172,7 +172,9 @@ export function UserMenu({ user, triggerClassName }: UserMenuProps) {
                 {t('user.menu.reports')}
               </Link>
             ) : null}
-            {isUserAdmin || isAuditor || isSuperAdmin ? <div className="-mx-1 my-1 h-px bg-muted" /> : null}
+            {isUserAdmin || isAuditor || isSuperAdmin || isSkillAdmin ? (
+              <div className="-mx-1 my-1 h-px bg-muted" />
+            ) : null}
             {isUserAdmin ? (
               <Link to="/admin/users" className={menuItemClassName} onClick={closeMenu}>
                 {t('user.menu.users')}
@@ -181,6 +183,11 @@ export function UserMenu({ user, triggerClassName }: UserMenuProps) {
             {isSuperAdmin ? (
               <Link to="/admin/labels" className={menuItemClassName} onClick={closeMenu}>
                 {t('user.menu.labels')}
+              </Link>
+            ) : null}
+            {isSkillAdmin ? (
+              <Link to="/admin/sources" className={menuItemClassName} onClick={closeMenu}>
+                {t('user.menu.gitSources')}
               </Link>
             ) : null}
             {isAuditor ? (
