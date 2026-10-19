@@ -384,6 +384,8 @@ Live git plan: repo=anthropics/skills/skills commit=683bc88e56f3e09ba94f7055977f
 
 ### 11.4 前端（本轮完成）
 
+> **变更（2026-10-16）**：源管理对普通用户开放。页面路由由 `/admin/sources` 改为 `/sources`，去掉路由级 `RoleGuard`；后端 `GitSourceAdminController` 去掉 9 处 `@PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")`（`/api/v1/admin/**` 的路由策略本就只要求登录），改由数据范围控制：管理员看/管全部，其他人只看/管自己注册的源，访问他人源返回 404 `error.gitSource.notFound`。菜单项对所有登录用户显示，发布页的「从Git仓库同步」按钮去掉角色门槛。本节以下关于"路由角色 `SUPER_ADMIN` / `SKILL_ADMIN`"的描述是当轮实现的历史记录。
+
 **管理页 `/admin/sources`**（`web/src/pages/admin/sources.tsx`，路由角色 `SUPER_ADMIN` / `SKILL_ADMIN`，与后端 `@PreAuthorize` 一致）：
 
 - 源列表：仓库 / 目标命名空间与凭据 / 调度（启用状态 + 间隔）/ 发布策略（`auto_publish` 决定"自动发布"还是"需人工审核"）/ 上次同步状态。

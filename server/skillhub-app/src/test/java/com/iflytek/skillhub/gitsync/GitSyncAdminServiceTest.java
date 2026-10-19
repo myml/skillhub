@@ -215,7 +215,7 @@ class GitSyncAdminServiceTest {
         given(store.findByLocation(any(), any(), any())).willReturn(Optional.of(existing));
 
         service.update(5L, new GitSourceCreateRequest("https://github.com/owner/repo", null, null,
-                "team-a", null, 60, true), "admin-1", null);
+                "team-a", null, 60, true), "admin-1", true, null);
 
         ArgumentCaptor<GitSourceRecord> updated = ArgumentCaptor.forClass(GitSourceRecord.class);
         verify(store).update(updated.capture());
@@ -268,7 +268,7 @@ class GitSyncAdminServiceTest {
                         List.of(new SkippedGitFile("LICENSE", "unsupported")))),
                 NOW));
 
-        var response = service.plan(5L);
+        var response = service.plan(5L, "admin-1", true);
 
         then(planService).should().plan(source);
         then(store).should().touchLastPlanned(5L);
@@ -285,7 +285,7 @@ class GitSyncAdminServiceTest {
     void deleteRemovesTheSourceAndItsMirror() {
         given(store.findById(5L)).willReturn(Optional.of(record(5L)));
 
-        service.delete(5L, "admin-1", null);
+        service.delete(5L, "admin-1", true, null);
 
         then(store).should().delete(5L);
         then(mirrors).should().delete(5L);
@@ -348,7 +348,7 @@ class GitSyncAdminServiceTest {
         givenNamespaceExists("global");
         given(store.findById(5L)).willReturn(Optional.of(record(5L, "release-bot:glpat-secret")));
 
-        service.update(5L, request("https://github.com/owner/repo", "", null), "admin-1", null);
+        service.update(5L, request("https://github.com/owner/repo", "", null), "admin-1", true, null);
 
         assertEquals("release-bot:glpat-secret", captureUpdated().credential());
     }
@@ -358,7 +358,7 @@ class GitSyncAdminServiceTest {
         givenNamespaceExists("global");
         given(store.findById(5L)).willReturn(Optional.of(record(5L, "release-bot:glpat-secret")));
 
-        service.update(5L, request("https://github.com/owner/repo", "-", null), "admin-1", null);
+        service.update(5L, request("https://github.com/owner/repo", "-", null), "admin-1", true, null);
 
         assertNull(captureUpdated().credential());
     }
@@ -368,7 +368,7 @@ class GitSyncAdminServiceTest {
         given(store.findAll()).willReturn(List.of(record(5L), record(6L)));
         given(store.countImportedBySource()).willReturn(Map.of(5L, 18, 6L, 2));
 
-        List<GitSourceResponse> sources = service.list();
+        List<GitSourceResponse> sources = service.list("admin-1", true);
 
         assertEquals(18, sources.get(0).importedSkillCount());
         assertEquals(2, sources.get(1).importedSkillCount());
@@ -379,14 +379,14 @@ class GitSyncAdminServiceTest {
         given(store.findAll()).willReturn(List.of(record(7L)));
         given(store.countImportedBySource()).willReturn(Map.of());
 
-        assertEquals(0, service.list().get(0).importedSkillCount());
+        assertEquals(0, service.list("admin-1", true).get(0).importedSkillCount());
     }
 
     @Test
     void getRejectsUnknownSource() {
         given(store.findById(404L)).willReturn(Optional.empty());
 
-        assertThrows(DomainNotFoundException.class, () -> service.get(404L));
+        assertThrows(DomainNotFoundException.class, () -> service.get(404L, "admin-1", true));
     }
 
     @Test
@@ -413,7 +413,7 @@ class GitSyncAdminServiceTest {
                 .willReturn(Optional.of(record(9L, "https://gitlab.internal/group/repo", null)));
 
         DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
-                () -> service.update(5L, request("https://gitlab.internal/group/repo", null, null), "admin-1", null));
+                () -> service.update(5L, request("https://gitlab.internal/group/repo", null, null), "admin-1", true, null));
 
         assertEquals("error.gitSource.duplicate", error.messageCode());
         verify(store, never()).update(any());
@@ -426,7 +426,7 @@ class GitSyncAdminServiceTest {
         given(store.findByLocation("https://github.com/owner/repo", "", "global"))
                 .willReturn(Optional.of(record(5L, "https://github.com/owner/repo", null)));
 
-        service.update(5L, request("https://github.com/owner/repo", null, null), "admin-1", null);
+        service.update(5L, request("https://github.com/owner/repo", null, null), "admin-1", true, null);
 
         verify(store).update(any());
     }
@@ -461,7 +461,7 @@ class GitSyncAdminServiceTest {
                 .willReturn(Optional.of(record(5L, "release-bot:glpat-old")));
 
         service.update(5L, request("https://github.com/owner/repo", "release-bot:glpat-new", null),
-                "admin-1", null);
+                "admin-1", true, null);
 
         ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
         verify(auditLogService).record(eq("admin-1"), eq("GIT_SOURCE_UPDATE"), eq("GIT_SOURCE"), eq(5L),
@@ -474,7 +474,7 @@ class GitSyncAdminServiceTest {
     void deleteAuditsTheRemovedSource() {
         given(store.findById(5L)).willReturn(Optional.of(record(5L)));
 
-        service.delete(5L, "admin-1", null);
+        service.delete(5L, "admin-1", true, null);
 
         verify(auditLogService).record(eq("admin-1"), eq("GIT_SOURCE_DELETE"), eq("GIT_SOURCE"), eq(5L),
                 any(), any(), any(), any());
@@ -486,13 +486,76 @@ class GitSyncAdminServiceTest {
         GitSyncRunRecord run = new GitSyncRunRecord(77L, 5L, "MANUAL", "SUCCESS", 3, 1, 1, 1, 0, 0, null, NOW, NOW);
         given(executor.sync(5L, "MANUAL")).willReturn(run);
 
-        service.sync(5L, "admin-1", null);
+        service.sync(5L, "admin-1", true, null);
 
         ArgumentCaptor<String> detail = ArgumentCaptor.forClass(String.class);
         verify(auditLogService).record(eq("admin-1"), eq("GIT_SOURCE_SYNC"), eq("GIT_SOURCE"), eq(5L),
                 any(), any(), any(), detail.capture());
         assertTrue(detail.getValue().contains("\"runId\":77"));
         assertTrue(detail.getValue().contains("\"status\":\"SUCCESS\""));
+    }
+
+    @Test
+    void listShowsARegularUserOnlyTheirOwnSources() {
+        GitSourceRecord mine = recordOwnedBy(5L, "user-1");
+        given(store.findByCreatedBy("user-1")).willReturn(List.of(mine));
+        given(store.countImportedBySource()).willReturn(Map.of(5L, 3));
+
+        List<GitSourceResponse> sources = service.list("user-1", false);
+
+        assertEquals(1, sources.size());
+        assertEquals(5L, sources.getFirst().id());
+        then(store).should(never()).findAll();
+    }
+
+    @Test
+    void listShowsAnAdministratorEverySource() {
+        given(store.findAll()).willReturn(List.of(recordOwnedBy(5L, "user-1"), recordOwnedBy(6L, "user-2")));
+        given(store.countImportedBySource()).willReturn(Map.of());
+
+        assertEquals(2, service.list("admin-1", true).size());
+        then(store).should(never()).findByCreatedBy(any());
+    }
+
+    @Test
+    void aRegularUserCannotSeeOrChangeSomebodyElsesSource() {
+        given(store.findById(5L)).willReturn(Optional.of(recordOwnedBy(5L, "user-1")));
+
+        // Reported as missing, not as forbidden: the API must not confirm that
+        // another user's source exists.
+        for (var call : List.<org.junit.jupiter.api.function.Executable>of(
+                () -> service.get(5L, "user-2", false),
+                () -> service.items(5L, "user-2", false),
+                () -> service.runs(5L, 10, "user-2", false),
+                () -> service.plan(5L, "user-2", false),
+                () -> service.delete(5L, "user-2", false, null),
+                () -> service.sync(5L, "user-2", false, null),
+                () -> service.update(5L, request("https://github.com/owner/repo", null, null),
+                        "user-2", false, null))) {
+            DomainNotFoundException error = assertThrows(DomainNotFoundException.class, call);
+            assertEquals("error.gitSource.notFound", error.messageCode());
+        }
+        verify(store, never()).delete(any());
+        verify(store, never()).update(any());
+    }
+
+    @Test
+    void anAdministratorCanChangeAnybodysSource() {
+        given(store.findById(5L)).willReturn(Optional.of(recordOwnedBy(5L, "user-1")));
+
+        service.get(5L, "admin-1", true);
+        service.delete(5L, "admin-1", true, null);
+
+        verify(store).delete(5L);
+    }
+
+    @Test
+    void aRegularUserCanChangeTheirOwnSource() {
+        given(store.findById(5L)).willReturn(Optional.of(recordOwnedBy(5L, "user-1")));
+
+        service.delete(5L, "user-1", false, null);
+
+        verify(store).delete(5L);
     }
 
     @Test
@@ -522,6 +585,12 @@ class GitSyncAdminServiceTest {
         assertEquals("error.gitSource.limit.sources", error.messageCode());
         assertEquals(1, error.messageArgs()[0]);
         verify(store, never()).insert(any());
+    }
+
+    private static GitSourceRecord recordOwnedBy(Long id, String createdBy) {
+        return new GitSourceRecord(id, "https://github.com/owner/repo", "owner/repo",
+                "main", "", "global", null, createdBy, 60, true, SkillVisibility.PUBLIC,
+                createdBy, NOW, NOW, null, null, null, null);
     }
 
     private static GitSourceRecord record(Long id) {

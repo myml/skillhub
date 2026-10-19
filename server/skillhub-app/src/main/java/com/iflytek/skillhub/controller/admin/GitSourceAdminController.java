@@ -15,7 +15,7 @@ import com.iflytek.skillhub.service.AuditRequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.List;
-import org.springframework.security.access.prepost.PreAuthorize;
+import java.util.Set;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,7 +28,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Administration of git skill sources.
+ * Management of git skill sources.
+ *
+ * <p>Any signed-in user may register a source for a namespace they belong to;
+ * they only ever see and change the sources they registered themselves.
+ * Platform administrators see and manage every source.
  *
  * <p>Everything here is additive: sources are registered explicitly, and the
  * plan endpoint is a dry run that never modifies the registry.
@@ -45,19 +49,19 @@ public class GitSourceAdminController extends BaseApiController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
-    public ApiResponse<List<GitSourceResponse>> listSources() {
-        return ok("response.success.read", gitSyncAdminService.list());
+    public ApiResponse<List<GitSourceResponse>> listSources(@AuthenticationPrincipal PlatformPrincipal principal) {
+        return ok("response.success.read",
+                gitSyncAdminService.list(principal.userId(), canManageAllSources(principal)));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
-    public ApiResponse<GitSourceResponse> getSource(@PathVariable Long id) {
-        return ok("response.success.read", gitSyncAdminService.get(id));
+    public ApiResponse<GitSourceResponse> getSource(@PathVariable Long id,
+                                                    @AuthenticationPrincipal PlatformPrincipal principal) {
+        return ok("response.success.read",
+                gitSyncAdminService.get(id, principal.userId(), canManageAllSources(principal)));
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
     public ApiResponse<GitSourceResponse> createSource(@Valid @RequestBody GitSourceCreateRequest request,
                                                        @AuthenticationPrincipal PlatformPrincipal principal,
                                                        HttpServletRequest httpRequest) {
@@ -66,55 +70,67 @@ public class GitSourceAdminController extends BaseApiController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
     public ApiResponse<GitSourceResponse> updateSource(@PathVariable Long id,
                                                        @Valid @RequestBody GitSourceCreateRequest request,
                                                        @AuthenticationPrincipal PlatformPrincipal principal,
                                                        HttpServletRequest httpRequest) {
         return ok("response.success.updated",
-                gitSyncAdminService.update(id, request, principal.userId(), AuditRequestContext.from(httpRequest)));
+                gitSyncAdminService.update(id, request, principal.userId(), canManageAllSources(principal),
+                        AuditRequestContext.from(httpRequest)));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
     public ApiResponse<MessageResponse> deleteSource(@PathVariable Long id,
                                                      @AuthenticationPrincipal PlatformPrincipal principal,
                                                      HttpServletRequest httpRequest) {
-        gitSyncAdminService.delete(id, principal.userId(), AuditRequestContext.from(httpRequest));
+        gitSyncAdminService.delete(id, principal.userId(), canManageAllSources(principal),
+                AuditRequestContext.from(httpRequest));
         return ok("response.success.deleted", new MessageResponse("Git source deleted"));
     }
 
     @GetMapping("/{id}/items")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
-    public ApiResponse<List<GitSourceItemResponse>> listItems(@PathVariable Long id) {
-        return ok("response.success.read", gitSyncAdminService.items(id));
+    public ApiResponse<List<GitSourceItemResponse>> listItems(@PathVariable Long id,
+                                                              @AuthenticationPrincipal PlatformPrincipal principal) {
+        return ok("response.success.read",
+                gitSyncAdminService.items(id, principal.userId(), canManageAllSources(principal)));
     }
 
     /**
      * Dry-run import plan: what a sync would add, change, or remove.
      */
     @PostMapping("/{id}/plan")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
-    public ApiResponse<GitImportPlanResponse> plan(@PathVariable Long id) {
-        return ok("response.success.read", gitSyncAdminService.plan(id));
+    public ApiResponse<GitImportPlanResponse> plan(@PathVariable Long id,
+                                                   @AuthenticationPrincipal PlatformPrincipal principal) {
+        return ok("response.success.read",
+                gitSyncAdminService.plan(id, principal.userId(), canManageAllSources(principal)));
     }
 
     /**
      * Runs a sync immediately instead of waiting for the schedule.
      */
     @PostMapping("/{id}/sync")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
     public ApiResponse<GitSyncRunResponse> sync(@PathVariable Long id,
                                                 @AuthenticationPrincipal PlatformPrincipal principal,
                                                 HttpServletRequest httpRequest) {
         return ok("response.success.updated",
-                gitSyncAdminService.sync(id, principal.userId(), AuditRequestContext.from(httpRequest)));
+                gitSyncAdminService.sync(id, principal.userId(), canManageAllSources(principal),
+                        AuditRequestContext.from(httpRequest)));
     }
 
     @GetMapping("/{id}/runs")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')")
     public ApiResponse<List<GitSyncRunResponse>> listRuns(@PathVariable Long id,
-                                                         @RequestParam(required = false) Integer limit) {
-        return ok("response.success.read", gitSyncAdminService.runs(id, limit));
+                                                         @RequestParam(required = false) Integer limit,
+                                                         @AuthenticationPrincipal PlatformPrincipal principal) {
+        return ok("response.success.read",
+                gitSyncAdminService.runs(id, limit, principal.userId(), canManageAllSources(principal)));
+    }
+
+    /**
+     * Platforms administrators manage every source; everybody else manages the
+     * sources they registered.
+     */
+    private static boolean canManageAllSources(PlatformPrincipal principal) {
+        Set<String> roles = principal.platformRoles() == null ? Set.of() : principal.platformRoles();
+        return roles.contains("SUPER_ADMIN") || roles.contains("SKILL_ADMIN");
     }
 }

@@ -191,6 +191,13 @@ public class GitSourceStore {
         return jdbcTemplate.query("SELECT " + SOURCE_COLUMNS + " FROM git_source ORDER BY id", SOURCE_MAPPER);
     }
 
+    /** Sources registered by one user, for callers who may not see everybody's. */
+    public List<GitSourceRecord> findByCreatedBy(String createdBy) {
+        return jdbcTemplate.query(
+                "SELECT " + SOURCE_COLUMNS + " FROM git_source WHERE created_by = ? ORDER BY id",
+                SOURCE_MAPPER, createdBy);
+    }
+
     /**
      * Enabled sources whose sync interval has elapsed, oldest first.
      */

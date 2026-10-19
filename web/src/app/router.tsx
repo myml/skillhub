@@ -134,10 +134,9 @@ const AdminLabelsPage = createRoleProtectedRouteComponent(
   'AdminLabelsPage',
   ['SUPER_ADMIN'],
 )
-const AdminSourcesPage = createRoleProtectedRouteComponent(
+const GitSourcesPage = createLazyRouteComponent(
   () => import('@/pages/admin/sources'),
   'AdminSourcesPage',
-  ['SUPER_ADMIN', 'SKILL_ADMIN'],
 )
 
 function DefaultNotFound() {
@@ -407,11 +406,13 @@ const adminLabelsRoute = createRoute({
   component: AdminLabelsPage,
 })
 
-const adminSourcesRoute = createRoute({
+// Any signed-in user may manage the sources they registered; the API scopes the
+// list to their own sources, and administrators see everything.
+const gitSourcesRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: 'admin/sources',
+  path: 'sources',
   beforeLoad: requireAuth,
-  component: AdminSourcesPage,
+  component: GitSourcesPage,
 })
 
 const routeTree = rootRoute.addChildren([
@@ -448,7 +449,7 @@ const routeTree = rootRoute.addChildren([
   adminUsersRoute,
   adminAuditLogRoute,
   adminLabelsRoute,
-  adminSourcesRoute,
+  gitSourcesRoute,
 ])
 
 export const router = createRouter({

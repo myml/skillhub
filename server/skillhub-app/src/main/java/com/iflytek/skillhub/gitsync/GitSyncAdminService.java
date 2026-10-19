@@ -30,6 +30,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -129,8 +130,8 @@ public class GitSyncAdminService {
 
     @Transactional
     public GitSourceResponse update(Long id, GitSourceCreateRequest request, String actorId,
-                                    AuditRequestContext auditContext) {
-        GitSourceRecord existing = requireSource(id);
+                                    boolean canManageAll, AuditRequestContext auditContext) {
+        GitSourceRecord existing = requireAccessibleSource(id, actorId, canManageAll);
         ValidatedSource validated = validate(request);
         Namespace namespace = requireNamespace(validated.namespaceSlug());
         requireLocationFree(validated, id);
@@ -196,21 +197,21 @@ public class GitSyncAdminService {
     }
 
     @Transactional(readOnly = true)
-    public List<GitSourceResponse> list() {
+    public List<GitSourceResponse> list(String actorId, boolean canManageAll) {
         Map<Long, Integer> imported = store.countImportedBySource();
-        return store.findAll().stream()
+        return sourcesVisibleTo(actorId, canManageAll).stream()
                 .map(source -> toResponse(source, imported.getOrDefault(source.id(), 0)))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public GitSourceResponse get(Long id) {
-        return toResponse(requireSource(id), countImported(id));
+    public GitSourceResponse get(Long id, String actorId, boolean canManageAll) {
+        return toResponse(requireAccessibleSource(id, actorId, canManageAll), countImported(id));
     }
 
     @Transactional
-    public void delete(Long id, String actorId, AuditRequestContext auditContext) {
-        GitSourceRecord existing = requireSource(id);
+    public void delete(Long id, String actorId, boolean canManageAll, AuditRequestContext auditContext) {
+        GitSourceRecord existing = requireAccessibleSource(id, actorId, canManageAll);
         store.delete(id);
         // The mirror is a cache of this source; drop it together with the source.
         mirrors.delete(id);
@@ -218,14 +219,14 @@ public class GitSyncAdminService {
     }
 
     @Transactional(readOnly = true)
-    public List<GitSourceItemResponse> items(Long id) {
-        requireSource(id);
+    public List<GitSourceItemResponse> items(Long id, String actorId, boolean canManageAll) {
+        requireAccessibleSource(id, actorId, canManageAll);
         return store.findItems(id).stream().map(GitSyncAdminService::toItemResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<GitSyncRunResponse> runs(Long id, Integer limit) {
-        requireSource(id);
+    public List<GitSyncRunResponse> runs(Long id, Integer limit, String actorId, boolean canManageAll) {
+        requireAccessibleSource(id, actorId, canManageAll);
         int effective = limit == null ? DEFAULT_RUN_HISTORY_LIMIT : Math.clamp(limit, 1, MAX_RUN_HISTORY_LIMIT);
         return store.findRuns(id, effective).stream().map(GitSyncAdminService::toRunResponse).toList();
     }
@@ -235,8 +236,8 @@ public class GitSyncAdminService {
      * importing anything. Skipped files are listed so the effect is predictable.
      */
     @Transactional
-    public GitImportPlanResponse plan(Long id) {
-        GitSourceRecord source = requireSource(id);
+    public GitImportPlanResponse plan(Long id, String actorId, boolean canManageAll) {
+        GitSourceRecord source = requireAccessibleSource(id, actorId, canManageAll);
         GitImportPlan plan = planService.plan(source);
         store.touchLastPlanned(id);
         return toPlanResponse(plan);
@@ -245,8 +246,9 @@ public class GitSyncAdminService {
     /**
      * Runs a sync now, in the caller's request thread.
      */
-    public GitSyncRunResponse sync(Long id, String actorId, AuditRequestContext auditContext) {
-        GitSourceRecord source = requireSource(id);
+    public GitSyncRunResponse sync(Long id, String actorId, boolean canManageAll,
+                                   AuditRequestContext auditContext) {
+        GitSourceRecord source = requireAccessibleSource(id, actorId, canManageAll);
         GitSyncRunRecord run = executor.sync(id, GitSyncExecutor.TRIGGER_MANUAL);
         // Scheduled ticks are covered by the run history; this records who asked.
         Map<String, Object> detail = detailOf(source);
@@ -256,6 +258,29 @@ public class GitSyncAdminService {
         detail.put("failed", run.failedCount());
         recordAudit("GIT_SOURCE_SYNC", actorId, id, auditContext, detail);
         return toRunResponse(run);
+    }
+
+    /**
+     * Sources the actor is allowed to see: administrators see every source, a
+     * regular user only the ones they registered themselves.
+     */
+    private List<GitSourceRecord> sourcesVisibleTo(String actorId, boolean canManageAll) {
+        return canManageAll ? store.findAll() : store.findByCreatedBy(actorId);
+    }
+
+    /**
+     * Loads a source the actor may read or change.
+     *
+     * <p>Somebody else's source is reported as missing rather than forbidden: a
+     * regular user has no business learning that it exists, and the API must not
+     * become a way to enumerate other people's repositories.
+     */
+    private GitSourceRecord requireAccessibleSource(Long id, String actorId, boolean canManageAll) {
+        GitSourceRecord source = requireSource(id);
+        if (!canManageAll && !Objects.equals(source.createdBy(), actorId)) {
+            throw new DomainNotFoundException("error.gitSource.notFound", id);
+        }
+        return source;
     }
 
     /** Each user may register at most the configured number of sources. */

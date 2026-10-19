@@ -185,11 +185,9 @@ export function UserMenu({ user, triggerClassName }: UserMenuProps) {
                 {t('user.menu.labels')}
               </Link>
             ) : null}
-            {isSkillAdmin ? (
-              <Link to="/admin/sources" className={menuItemClassName} onClick={closeMenu}>
-                {t('user.menu.gitSources')}
-              </Link>
-            ) : null}
+            <Link to="/sources" className={menuItemClassName} onClick={closeMenu}>
+              {t('user.menu.gitSources')}
+            </Link>
             {isAuditor ? (
               <Link to="/admin/audit-log" className={menuItemClassName} onClick={closeMenu}>
                 {t('user.menu.auditLog')}

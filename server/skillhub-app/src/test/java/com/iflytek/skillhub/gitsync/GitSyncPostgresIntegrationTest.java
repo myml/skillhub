@@ -254,7 +254,7 @@ class GitSyncPostgresIntegrationTest {
         GitImportPlanResponse plan = new GitSyncAdminService(store, namespaceRepository, planService,
                 executor, mirrorStore(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
                 auditLogService, objectMapper,
-                Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id());
+                Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id(), "admin-1", true);
         assertEquals(1, plan.added());
         assertThat(skillRepository.findByNamespaceIdAndSlug(namespace.getId(), "postgres-toolkit")).isEmpty();
 

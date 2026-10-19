@@ -17,7 +17,6 @@ import { Card } from '@/shared/ui/card'
 import { usePublishSkill } from '@/shared/hooks/use-skill-queries'
 import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
 import { DashboardPageHeader } from '@/shared/components/dashboard-page-header'
-import { useAuth } from '@/features/auth/use-auth'
 import { toast } from '@/shared/lib/toast'
 import { ApiError } from '@/api/client'
 
@@ -59,19 +58,9 @@ function isFrontmatterFailureMessage(message?: string): boolean {
 
 const EMPTY_NAMESPACE_VALUE = '__select_namespace__'
 
-/**
- * Who may open the git source admin page. Mirrors the endpoint's
- * {@code hasAnyRole('SUPER_ADMIN','SKILL_ADMIN')} so the button never leads to a 403.
- */
-export function canManageGitSources(hasRole: (role: string) => boolean): boolean {
-  return hasRole('SKILL_ADMIN') || hasRole('SUPER_ADMIN')
-}
-
 export function PublishPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { hasRole } = useAuth()
-  const canManageSources = canManageGitSources(hasRole)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [namespaceSlug, setNamespaceSlug] = useState<string>('')
   const [visibility, setVisibility] = useState<string>('PUBLIC')
@@ -152,12 +141,10 @@ export function PublishPage() {
         title={t('publish.title')}
         subtitle={t('publish.subtitle')}
         actions={
-          canManageSources ? (
-            <Button variant="outline" onClick={() => navigate({ to: '/admin/sources' })}>
-              <GitBranch className="mr-2 h-4 w-4" />
-              {t('publish.manageGitSources')}
-            </Button>
-          ) : undefined
+          <Button variant="outline" onClick={() => navigate({ to: '/sources' })}>
+            <GitBranch className="mr-2 h-4 w-4" />
+            {t('publish.manageGitSources')}
+          </Button>
         }
       />
 
