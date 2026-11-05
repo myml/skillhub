@@ -137,3 +137,81 @@ A：看不到。列表里只有你自己注册的源；平台管理员可以看�
 
 **Q：提示「同一仓库地址、子目录与命名空间已存在源」怎么办？**
 A：说明这个「仓库 + 子目录 + 命名空间」的组合已经有人注册过了（也可能是你自己之前建的）。换个命名空间或换个子目录，或者先确认那个源是不是你建的。
+---
+
+## 七、用 curl 调用接口同步
+
+想用脚本或命令行自动化时用这套接口。权限和页面完全一样：**只能操作你自己注册的源**，别人的源一律返回 `未找到 Git 源`。
+
+### 1. 准备 API Token
+
+控制台 → **API Token**（`/dashboard/tokens`）→ 新建，把 token 复制下来（只显示一次）。git 源接口对所有有效 token 开放，不需要勾特殊权限。
+
+```bash
+TOKEN=你的-token
+API=https://你的平台域名/api/v1/admin/git-sources
+```
+
+### 2. 查看自己有哪些源
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" "$API"
+```
+
+只返回你自己注册的源（管理员能看到全部）。
+
+### 3. 注册一个源
+
+```bash
+curl -s -X POST "$API" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repoUrl": "https://github.com/owner/repo",
+    "defaultRef": "main",
+    "subpath": "",
+    "namespaceSlug": "global",
+    "credential": "",
+    "syncIntervalMinutes": 60,
+    "enabled": true
+  }'
+```
+
+字段和页面表单一一对应：`repoUrl` 仓库地址、`defaultRef` 分支或标签（默认 main）、`subpath` 子目录（空 = 整仓）、`namespaceSlug` 目标命名空间（必须是你是成员的命名空间）、`credential` 凭据（公开仓库填空）、`syncIntervalMinutes` 同步间隔分钟、`enabled` 定时同步开关。响应里的 `data.id` 就是这个源的 ID，后面都用它。
+
+### 4. 试运行（只预览，不导入）
+
+```bash
+curl -s -X POST "$API/3/plan" -H "Authorization: Bearer $TOKEN"
+```
+
+看 `data.added` / `changed` / `unchanged` / `removed` 和 `items` 里的每个 skill 目录。
+
+### 5. 立即同步
+
+```bash
+curl -s -X POST "$API/3/sync" -H "Authorization: Bearer $TOKEN"
+```
+
+这个请求会等这次同步结束再返回。看 `data.status`：`SUCCESS` 成功 / `PARTIAL` 部分成功（有目录失败）/ `FAILED` 失败。
+
+### 6. 查看同步历史
+
+```bash
+curl -s "$API/3/runs?limit=5" -H "Authorization: Bearer $TOKEN"
+```
+
+### 7. 删除源
+
+```bash
+curl -s -X DELETE "$API/3" -H "Authorization: Bearer $TOKEN"
+```
+
+已导入的 skill 保留，只是不再跟着这个源更新。
+
+### 常见问题
+
+* 响应统一是 `{code, msg, data}`，`code = 0` 表示成功。
+* 带了 `Authorization: Bearer` 头就不需要管 Cookie / CSRF。
+* 接口路径里的 `/admin` 只是命名，普通用户同样能调——权限按"是不是你自己的源"判断。
+* 生产环境把上面的 `你的平台域名` 换成正式的 https 域名，别用 `-k` 跳过证书校验。
