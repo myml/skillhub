@@ -404,6 +404,29 @@ export interface AdminUser {
   createdAt: string
 }
 
+/** One row of the administrator skill console (includes private/hidden skills). */
+export interface AdminSkillRow {
+  id: number
+  namespaceSlug: string | null
+  slug: string
+  displayName: string | null
+  ownerId: string
+  ownerDisplayName: string | null
+  visibility: string
+  status: string
+  hidden: boolean
+  published: boolean
+  downloadCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+/** Per-skill outcome of an administrator batch operation. */
+export interface AdminSkillBatchResult {
+  succeeded: number[]
+  failed: Array<{ skillId: number; reason: string }>
+}
+
 export interface AuditLogItem {
   id: string
   userId?: string

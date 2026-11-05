@@ -175,6 +175,11 @@ export function UserMenu({ user, triggerClassName }: UserMenuProps) {
             {isUserAdmin || isAuditor || isSuperAdmin || isSkillAdmin ? (
               <div className="-mx-1 my-1 h-px bg-muted" />
             ) : null}
+            {isSkillAdmin ? (
+              <Link to="/admin/skills" className={menuItemClassName} onClick={closeMenu}>
+                {t('user.menu.adminSkills')}
+              </Link>
+            ) : null}
             {isUserAdmin ? (
               <Link to="/admin/users" className={menuItemClassName} onClick={closeMenu}>
                 {t('user.menu.users')}

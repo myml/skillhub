@@ -312,6 +312,10 @@ Admin API 按最小权限拆分，不再统一要求 SUPER_ADMIN：
 | POST | `/api/v1/admin/skills/{id}/hide` | 隐藏技能（仅 `SUPER_ADMIN`） |
 | POST | `/api/v1/admin/skills/{id}/unhide` | 恢复技能（仅 `SUPER_ADMIN`） |
 | POST | `/api/v1/admin/skills/versions/{versionId}/yank` | 撤回已发布版本（`SKILL_ADMIN` / `SUPER_ADMIN`） |
+| GET | `/api/v1/admin/skills` | 全平台技能列表，支持 `keyword` / `namespace` / `status` / `visibility` / `hidden` / `ownerId` 与分页（`SKILL_ADMIN` / `SUPER_ADMIN`）；**不受可见性限制**，私有/隐藏/归档技能都返回 |
+| GET | `/api/v1/admin/skills/transfer-candidates` | 更改作者时的候选用户（启用状态，按用户名/邮箱/ID 搜索，最多 10 条） |
+| POST | `/api/v1/admin/skills/batch/transfer` | 批量更改作者，body `{skillIds:[], toUserId}`；逐条校验、逐条提交，返回 `succeeded` / `failed[{skillId,reason}]` |
+| POST | `/api/v1/admin/skills/batch/delete` | 批量硬删除，body `{skillIds:[]}`；仅 `SUPER_ADMIN`，同样返回逐条结果 |
 
 ### 用户治理（需 USER_ADMIN / SUPER_ADMIN）
 

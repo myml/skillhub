@@ -17,6 +17,8 @@ import type {
   AuditLogItem,
   SkillSummary,
   SkillReport,
+  AdminSkillBatchResult,
+  AdminUser,
   GovernanceSummary,
   GovernanceInboxItem,
   GovernanceActivityItem,
@@ -591,6 +593,16 @@ export const namespaceApi = {
     return namespace
   },
 
+  async list(params: { page?: number; size?: number } = {}): Promise<Namespace[]> {
+    const searchParams = new URLSearchParams()
+    searchParams.set('page', String(params.page ?? 0))
+    searchParams.set('size', String(params.size ?? 100))
+    const response = await fetchJson<{ items: Namespace[] }>(
+      `/api/v1/namespaces?${searchParams.toString()}`,
+    )
+    return response.items
+  },
+
   async listMine(): Promise<ManagedNamespace[]> {
     return fetchJson<ManagedNamespace[]>(`${WEB_API_PREFIX}/me/namespaces`)
   },
@@ -1119,6 +1131,100 @@ export const adminApi = {
       method: 'POST',
       headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({ reason }),
+    })
+  },
+
+  async getSkills(params: {
+    keyword?: string
+    namespace?: string
+    status?: string
+    visibility?: string
+    hidden?: boolean
+    ownerId?: string
+    page?: number
+    size?: number
+  }): Promise<{ items: Array<{
+    id: number
+    namespaceSlug: string | null
+    slug: string
+    displayName: string | null
+    ownerId: string
+    ownerDisplayName: string | null
+    visibility: string
+    status: string
+    hidden: boolean
+    published: boolean
+    downloadCount: number
+    createdAt: string
+    updatedAt: string
+  }>; total: number; page: number; size: number }> {
+    const searchParams = new URLSearchParams()
+    if (params.keyword) searchParams.set('keyword', params.keyword)
+    if (params.namespace) searchParams.set('namespace', params.namespace)
+    if (params.status) searchParams.set('status', params.status)
+    if (params.visibility) searchParams.set('visibility', params.visibility)
+    if (params.hidden !== undefined) searchParams.set('hidden', String(params.hidden))
+    if (params.ownerId) searchParams.set('ownerId', params.ownerId)
+    searchParams.set('page', String(params.page ?? 0))
+    searchParams.set('size', String(params.size ?? 20))
+    return fetchJson<{
+      items: Array<{
+        id: number
+        namespaceSlug: string | null
+        slug: string
+        displayName: string | null
+        ownerId: string
+        ownerDisplayName: string | null
+        visibility: string
+        status: string
+        hidden: boolean
+        published: boolean
+        downloadCount: number
+        createdAt: string
+        updatedAt: string
+      }>
+      total: number
+      page: number
+      size: number
+    }>(`/api/v1/admin/skills?${searchParams.toString()}`)
+  },
+
+  async getTransferCandidates(search: string): Promise<AdminUser[]> {
+    const searchParams = new URLSearchParams()
+    if (search) searchParams.set('search', search)
+    const items = await fetchJson<Array<{
+      id: string
+      username: string
+      email?: string
+      platformRoles?: string[]
+      status: string
+      createdAt: string
+    }>>(`/api/v1/admin/skills/transfer-candidates?${searchParams.toString()}`)
+    return items
+      .filter((user) => user.id && user.username)
+      .map((user) => ({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        platformRoles: user.platformRoles ?? [],
+        status: user.status,
+        createdAt: user.createdAt,
+      }))
+  },
+
+  async transferSkills(skillIds: number[], toUserId: string): Promise<AdminSkillBatchResult> {
+    return fetchJson<AdminSkillBatchResult>(`/api/v1/admin/skills/batch/transfer`, {
+      method: 'POST',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ skillIds, toUserId }),
+    })
+  },
+
+  async deleteSkills(skillIds: number[]): Promise<AdminSkillBatchResult> {
+    return fetchJson<AdminSkillBatchResult>(`/api/v1/admin/skills/batch/delete`, {
+      method: 'POST',
+      headers: getCsrfHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ skillIds }),
     })
   },
 

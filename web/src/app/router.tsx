@@ -134,6 +134,11 @@ const AdminLabelsPage = createRoleProtectedRouteComponent(
   'AdminLabelsPage',
   ['SUPER_ADMIN'],
 )
+const AdminSkillsPage = createRoleProtectedRouteComponent(
+  () => import('@/pages/admin/skills'),
+  'AdminSkillsPage',
+  ['SKILL_ADMIN', 'SUPER_ADMIN'],
+)
 const GitSourcesPage = createLazyRouteComponent(
   () => import('@/pages/admin/sources'),
   'AdminSourcesPage',
@@ -392,6 +397,13 @@ const adminUsersRoute = createRoute({
   component: AdminUsersPage,
 })
 
+const adminSkillsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'admin/skills',
+  beforeLoad: requireAuth,
+  component: AdminSkillsPage,
+})
+
 const adminAuditLogRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'admin/audit-log',
@@ -447,6 +459,7 @@ const routeTree = rootRoute.addChildren([
   settingsNotificationsRoute,
   settingsAccountsRoute,
   adminUsersRoute,
+  adminSkillsRoute,
   adminAuditLogRoute,
   adminLabelsRoute,
   gitSourcesRoute,

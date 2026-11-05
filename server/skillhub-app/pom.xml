@@ -111,6 +111,21 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+            <!--
+              The integration tests share a single in-memory H2 database, so every
+              Spring test context works on the same schema. Hibernate drops that
+              schema when a context is closed, therefore the context cache must be
+              large enough to never evict a context while the suite is running.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables>
+                        <spring.test.context.cache.maxSize>64</spring.test.context.cache.maxSize>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>

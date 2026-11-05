@@ -57,7 +57,7 @@
 |------|------|---------|------|
 | 审核中心 | `/admin/reviews` | SKILL_ADMIN | 全局待审核列表 |
 | 提升审核 | `/admin/promotions` | SKILL_ADMIN | 提升到全局的申请列表 |
-| 技能管理 | `/admin/skills` | SKILL_ADMIN | 隐藏/恢复技能、撤回已发布版本 |
+| 技能管理 | `/admin/skills` | SKILL_ADMIN / SUPER_ADMIN | 全平台技能列表（含私有/隐藏/归档）、多维筛选、批量更改作者；批量删除仅 SUPER_ADMIN（隐藏/恢复、撤回版本目前只有后端接口，页面未提供） |
 | 用户管理 | `/admin/users` | USER_ADMIN | 用户列表、角色分配、准入审批、封禁/解封 |
 | 审计日志 | `/admin/audit-logs` | AUDITOR | 操作日志查询 |
 | 命名空间管理 | `/admin/namespaces` | SUPER_ADMIN | 创建/归档/冻结 |

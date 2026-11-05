@@ -226,4 +226,18 @@ public class Skill {
     public void setHiddenBy(String hiddenBy) {
         this.hiddenBy = hiddenBy;
     }
+
+    /**
+     * Hands the skill to another author.
+     *
+     * <p>Only ownership moves: versions keep the publisher they were created under and
+     * download counters stay attached to the skill. Guard conditions (target exists, is
+     * a member of the namespace, does not already own the same slug) are the caller's
+     * responsibility.
+     */
+    public void transferOwnership(String newOwnerId, String actorId, Instant now) {
+        this.ownerId = newOwnerId;
+        this.updatedBy = actorId;
+        this.updatedAt = now;
+    }
 }
