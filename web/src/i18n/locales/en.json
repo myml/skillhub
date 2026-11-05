@@ -1490,7 +1490,10 @@
     "colPrecheck": "Precheck",
     "skippedCount": "{{n}} skipped",
     "skippedDetailTitle": "{{n}} skipped file(s)",
-    "skippedToggleHint": "Click to list the skipped files"
+    "skippedToggleHint": "Click to list the skipped files",
+    "problemsCount": "{{n}} issue(s)",
+    "problemsDetailTitle": "The pre-check found {{n}} issue(s); syncing this directory will fail",
+    "problemsToggleHint": "Click to see the reasons"
   },
   "skillSource": {
     "title": "Source",

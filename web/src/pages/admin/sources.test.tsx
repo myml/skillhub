@@ -54,6 +54,7 @@ import {
   syncResultToast,
   toSourceInput,
   validateSourceFormState,
+  ProblemsDetail,
   RunNotes,
   SkippedFilesDetail,
   changeTypeKey,
@@ -254,6 +255,24 @@ describe('changeTypeKey', () => {
 
   it('falls back to the raw value for a change type the UI does not know yet', () => {
     expect(changeTypeKey('RENAMED')).toBe('RENAMED')
+  })
+})
+
+
+describe('ProblemsDetail', () => {
+  it('lists every predicted failure reason of one directory', () => {
+    const html = renderToStaticMarkup(
+      <ProblemsDetail
+        problems={['该命名空间下已存在名为"pdf"的已发布技能，无法提交', '该技能已归档，请先恢复后再发布：pdf']}
+        t={(key: string, options?: Record<string, unknown>) =>
+          key === 'adminSources.problemsDetailTitle' ? `issues ${String(options?.n)}` : key
+        }
+      />,
+    )
+
+    expect(html).toContain('issues 2')
+    expect(html).toContain('已存在名为')
+    expect(html).toContain('已归档')
   })
 })
 

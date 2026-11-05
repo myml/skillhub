@@ -1490,7 +1490,10 @@
     "colPrecheck": "预检",
     "skippedCount": "跳过 {{n}} 个",
     "skippedDetailTitle": "跳过的 {{n}} 个文件",
-    "skippedToggleHint": "点击查看跳过的文件列表"
+    "skippedToggleHint": "点击查看跳过的文件列表",
+    "problemsCount": "{{n}} 项问题",
+    "problemsDetailTitle": "预检发现 {{n}} 项问题，同步这个目录会失败",
+    "problemsToggleHint": "点击查看具体原因"
   },
   "skillSource": {
     "title": "来源",

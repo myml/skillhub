@@ -267,6 +267,27 @@ function syncStatusClass(status: string | null) {
  * lines is what makes a long precheck failure readable. Long runs stay
  * collapsed so one verbose precheck failure cannot push the rest out of view.
  */
+export function ProblemsDetail({
+  problems,
+  t,
+}: {
+  problems: string[]
+  t: (key: string, options?: Record<string, unknown>) => string
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-destructive">
+        {t('adminSources.problemsDetailTitle', { n: problems.length })}
+      </div>
+      <ul className="space-y-1 text-xs text-destructive">
+        {problems.map((problem) => (
+          <li key={problem}>{problem}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function SkippedFilesDetail({
   files,
   t,
@@ -380,11 +401,15 @@ export function AdminSourcesPage() {
         ? 'adminSources.credentialDeployToken'
         : 'adminSources.authNone'
   const [plan, setPlan] = useState<GitImportPlan | null>(null)
-  // The skipped-file list is long enough to bury the table; it opens on demand.
-  const [skippedDetail, setSkippedDetail] = useState<string | null>(null)
+  // Long per-row detail (skipped files, pre-check reasons) would bury the table;
+  // one row of detail opens on demand, and only one at a time.
+  const [detail, setDetail] = useState<{ path: string; kind: 'skipped' | 'problems' } | null>(null)
   const [planSource, setPlanSource] = useState<GitSource | null>(null)
   const [runsSource, setRunsSource] = useState<GitSource | null>(null)
   const [itemsSource, setItemsSource] = useState<GitSource | null>(null)
+
+  const toggleDetail = (path: string, kind: 'skipped' | 'problems') =>
+    setDetail(detail && detail.path === path && detail.kind === kind ? null : { path, kind })
 
   const { data: runs, isLoading: runsLoading } = useGitSourceRuns(runsSource?.id, Boolean(runsSource))
   const { data: items, isLoading: itemsLoading } = useGitSourceItems(itemsSource?.id, Boolean(itemsSource))
@@ -449,7 +474,7 @@ export function AdminSourcesPage() {
   const handlePlan = async (source: GitSource) => {
     setPlanSource(source)
     setPlan(null)
-    setSkippedDetail(null)
+    setDetail(null)
     try {
       const result = await planMutation.mutateAsync(source.id)
       setPlan(result)
@@ -800,7 +825,7 @@ export function AdminSourcesPage() {
           if (!open) {
             setPlanSource(null)
             setPlan(null)
-            setSkippedDetail(null)
+            setDetail(null)
           }
         }}
       >
@@ -886,11 +911,9 @@ export function AdminSourcesPage() {
                               <button
                                 type="button"
                                 className="whitespace-nowrap text-xs text-muted-foreground underline-offset-4 hover:underline"
-                                aria-expanded={skippedDetail === item.itemPath}
+                                aria-expanded={detail?.path === item.itemPath && detail.kind === 'skipped'}
                                 title={t('adminSources.skippedToggleHint')}
-                                onClick={() =>
-                                  setSkippedDetail(skippedDetail === item.itemPath ? null : item.itemPath)
-                                }
+                                onClick={() => toggleDetail(item.itemPath, 'skipped')}
                               >
                                 {t('adminSources.skippedCount', { n: item.skippedFiles.length })}
                               </button>
@@ -900,18 +923,26 @@ export function AdminSourcesPage() {
                             {item.problems.length === 0 ? (
                               <span className="text-xs text-muted-foreground">—</span>
                             ) : (
-                              <ul className="space-y-1 text-xs text-destructive">
-                                {item.problems.map((problem) => (
-                                  <li key={problem}>{problem}</li>
-                                ))}
-                              </ul>
+                              <button
+                                type="button"
+                                className="whitespace-nowrap text-xs font-medium text-destructive underline-offset-4 hover:underline"
+                                aria-expanded={detail?.path === item.itemPath && detail.kind === 'problems'}
+                                title={t('adminSources.problemsToggleHint')}
+                                onClick={() => toggleDetail(item.itemPath, 'problems')}
+                              >
+                                {t('adminSources.problemsCount', { n: item.problems.length })}
+                              </button>
                             )}
                           </TableCell>
                         </TableRow>
-                        {skippedDetail === item.itemPath ? (
-                          <TableRow data-testid="skipped-detail">
+                        {detail?.path === item.itemPath ? (
+                          <TableRow data-testid="plan-detail">
                             <TableCell colSpan={6} className="bg-muted/40">
-                              <SkippedFilesDetail files={item.skippedFiles} t={t} />
+                              {detail.kind === 'skipped' ? (
+                                <SkippedFilesDetail files={item.skippedFiles} t={t} />
+                              ) : (
+                                <ProblemsDetail problems={item.problems} t={t} />
+                              )}
                             </TableCell>
                           </TableRow>
                         ) : null}
