@@ -54,7 +54,10 @@ import {
   syncResultToast,
   toSourceInput,
   validateSourceFormState,
+  ProblemsDetail,
   RunNotes,
+  SkippedFilesDetail,
+  changeTypeKey,
   splitNotes,
 } from './sources'
 
@@ -216,6 +219,60 @@ describe('AdminSourcesPage', () => {
     // The raw status enum must never reach the page: only its label key does.
     expect(html).toContain('adminSources.runStatusSuccess')
     expect(html).not.toContain('SUCCESS')
+  })
+})
+
+
+describe('SkippedFilesDetail', () => {
+  it('lists every skipped file with the reason the registry refused it', () => {
+    const html = renderToStaticMarkup(
+      <SkippedFilesDetail
+        files={[
+          { path: 'LICENSE', reason: 'file type is not accepted by the registry' },
+          { path: 'samples/big.mp4', reason: 'file exceeds 10485760 bytes' },
+        ]}
+        t={(key: string, options?: Record<string, unknown>) =>
+          key === 'adminSources.skippedDetailTitle' ? `skipped ${String(options?.n)}` : key
+        }
+      />,
+    )
+
+    expect(html).toContain('skipped 2')
+    expect(html).toContain('LICENSE')
+    expect(html).toContain('file type is not accepted by the registry')
+    expect(html).toContain('samples/big.mp4')
+  })
+})
+
+
+describe('changeTypeKey', () => {
+  it('maps every plan change type to its label instead of leaking the enum', () => {
+    expect(changeTypeKey('ADDED')).toBe('adminSources.planAdded')
+    expect(changeTypeKey('CHANGED')).toBe('adminSources.planChanged')
+    expect(changeTypeKey('UNCHANGED')).toBe('adminSources.planUnchanged')
+    expect(changeTypeKey('REMOVED')).toBe('adminSources.planRemoved')
+  })
+
+  it('falls back to the raw value for a change type the UI does not know yet', () => {
+    expect(changeTypeKey('RENAMED')).toBe('RENAMED')
+  })
+})
+
+
+describe('ProblemsDetail', () => {
+  it('lists every predicted failure reason of one directory', () => {
+    const html = renderToStaticMarkup(
+      <ProblemsDetail
+        problems={['该命名空间下已存在名为"pdf"的已发布技能，无法提交', '该技能已归档，请先恢复后再发布：pdf']}
+        t={(key: string, options?: Record<string, unknown>) =>
+          key === 'adminSources.problemsDetailTitle' ? `issues ${String(options?.n)}` : key
+        }
+      />,
+    )
+
+    expect(html).toContain('issues 2')
+    expect(html).toContain('已存在名为')
+    expect(html).toContain('已归档')
   })
 })
 

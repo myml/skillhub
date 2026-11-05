@@ -20,6 +20,7 @@ import com.iflytek.skillhub.gitsync.git.GitProviderException;
 import com.iflytek.skillhub.gitsync.git.GitRepoUrls;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlan;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlanItem;
+import com.iflytek.skillhub.gitsync.plan.PlanProblem;
 import com.iflytek.skillhub.gitsync.store.GitSourceItemRecord;
 import com.iflytek.skillhub.gitsync.store.GitSourceRecord;
 import com.iflytek.skillhub.gitsync.store.GitSourceStore;
@@ -31,7 +32,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Locale;
 import org.slf4j.MDC;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +66,7 @@ public class GitSyncAdminService {
     private final NamespaceMemberRepository namespaceMemberRepository;
     private final AuditLogService auditLogService;
     private final ObjectMapper objectMapper;
+    private final MessageSource messageSource;
     private final Clock clock;
 
     public GitSyncAdminService(GitSourceStore store,
@@ -74,6 +79,7 @@ public class GitSyncAdminService {
                                NamespaceMemberRepository namespaceMemberRepository,
                                AuditLogService auditLogService,
                                ObjectMapper objectMapper,
+                               MessageSource messageSource,
                                Clock clock) {
         this.store = store;
         this.namespaceRepository = namespaceRepository;
@@ -85,6 +91,7 @@ public class GitSyncAdminService {
         this.namespaceMemberRepository = namespaceMemberRepository;
         this.auditLogService = auditLogService;
         this.objectMapper = objectMapper;
+        this.messageSource = messageSource;
         this.clock = clock;
     }
 
@@ -468,7 +475,7 @@ public class GitSyncAdminService {
         return new GitSourceResponse(
                 source.id(),
                 source.repoUrl(),
-                GitRepoUrls.webUrl(source.repoUrl()),
+                webUrlOrNull(source.repoUrl()),
                 source.repoPath(),
                 source.defaultRef(),
                 source.subpath(),
@@ -488,6 +495,20 @@ public class GitSyncAdminService {
                 source.lastSyncStatus(),
                 source.lastSyncMessage()
         );
+    }
+
+    /**
+     * Best-effort browsable URL for the source list.
+     *
+     * <p>A row whose URL predates validation (or was written by a script) must not
+     * take the whole list down: an unparsable address simply gets no link.
+     */
+    private static String webUrlOrNull(String repoUrl) {
+        try {
+            return GitRepoUrls.webUrl(repoUrl);
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     static GitSourceItemResponse toItemResponse(GitSourceItemRecord item) {
@@ -521,7 +542,7 @@ public class GitSyncAdminService {
         );
     }
 
-    static GitImportPlanResponse toPlanResponse(GitImportPlan plan) {
+    GitImportPlanResponse toPlanResponse(GitImportPlan plan) {
         return new GitImportPlanResponse(
                 plan.sourceId(),
                 plan.ref(),
@@ -532,6 +553,7 @@ public class GitSyncAdminService {
                 plan.count(GitImportPlanItem.ChangeType.CHANGED),
                 plan.count(GitImportPlanItem.ChangeType.UNCHANGED),
                 plan.count(GitImportPlanItem.ChangeType.REMOVED),
+                plan.failing(),
                 plan.items().stream()
                         .map(item -> new GitImportPlanResponse.Item(
                                 item.itemPath(),
@@ -543,10 +565,27 @@ public class GitSyncAdminService {
                                 item.fileCount(),
                                 item.skippedFiles().stream()
                                         .map(skipped -> new GitImportPlanResponse.SkippedFile(
-                                                skipped.path(), skipped.reason()))
-                                        .toList()))
+                                                skipped.path(), localize(skipped.reasonCode(),
+                                                        skipped.reasonArgs())))
+                                        .toList(),
+                                item.willFail(),
+                                item.problems().stream().map(this::localize).toList()))
                         .toList()
         );
+    }
+
+    /**
+     * Renders one planned-failure reason in the caller's language.
+     *
+     * <p>Falls back to the raw code so a missing translation degrades to something
+     * searchable instead of failing the dry-run.
+     */
+    private String localize(PlanProblem problem) {
+        return localize(problem.code(), problem.args());
+    }
+
+    private String localize(String code, List<Object> args) {
+        return messageSource.getMessage(code, args.toArray(), code, LocaleContextHolder.getLocale());
     }
 
     private record ValidatedSource(String repoUrl,

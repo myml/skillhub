@@ -145,6 +145,7 @@ class GitSyncPostgresIntegrationTest {
                 new GitTreeEntry("skills/pg/SKILL.md", "blob", "sha-md", SKILL_DOCUMENT.length())));
         given(fetcher.readBlob(any(), anyString()))
                 .willReturn(SKILL_DOCUMENT.getBytes(StandardCharsets.UTF_8));
+        given(fetcher.readFile(any(), any(), any())).willReturn(SKILL_DOCUMENT);
         return fetcher;
     }
 
@@ -161,16 +162,25 @@ class GitSyncPostgresIntegrationTest {
     private GitSyncExecutor executor(GitRepositoryFetcher fetcher, GitMirrorStore mirrors) {
         GitSourcePlanService planService = new GitSourcePlanService(store, fetcher,
                 new GitCredentialResolver(),
-                metadataParser, urlPolicy(), Clock.fixed(NOW, ZoneOffset.UTC));
+                metadataParser, urlPolicy(), precheck(), Clock.fixed(NOW, ZoneOffset.UTC));
+        return new GitSyncExecutor(store, planService, fetcher, publishService, namespaceRepository,
+                skillRepository, skillVersionRepository, metadataParser, mirrorStore(), new GitSyncProperties(),
+                messages(), Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    private static ResourceBundleMessageSource messages() {
         ResourceBundleMessageSource messages = new ResourceBundleMessageSource();
         messages.setBasename("messages");
         messages.setDefaultEncoding("UTF-8");
         // Without this, a request for 'en' falls back to the JVM's default locale
         // (often zh_CN) instead of the base messages.properties bundle.
         messages.setFallbackToSystemLocale(false);
-        return new GitSyncExecutor(store, planService, fetcher, publishService, namespaceRepository,
-                skillRepository, skillVersionRepository, metadataParser, mirrorStore(), new GitSyncProperties(),
-                messages, Clock.fixed(NOW, ZoneOffset.UTC));
+        return messages;
+    }
+
+    private GitPlanPrecheck precheck() {
+        return new GitPlanPrecheck(namespaceRepository, namespaceMemberRepository,
+                skillRepository, skillVersionRepository);
     }
 
     /** Mirrors are never touched here: the fetcher is replaced by a mock. */
@@ -204,6 +214,47 @@ class GitSyncPostgresIntegrationTest {
                 SkillVisibility.PUBLIC, publisherId, NOW, NOW, null, null, null, null);
         Long id = store.insert(source);
         return store.findById(id).orElseThrow();
+    }
+
+
+    @Test
+    @Transactional
+    void planExplainsWhyADirectoryWouldFailWhenTheNameIsAlreadyPublished() {
+        Namespace namespace = createNamespace();
+        String publisherId = createUser("publisher");
+        String rivalId = createUser("rival");
+        given(namespaceMemberRepository.findByNamespaceIdAndUserId(anyLong(), anyString()))
+                .willReturn(Optional.of(new NamespaceMember(namespace.getId(), publisherId, null)));
+
+        // Another owner already published a skill with the name this repository would import.
+        Skill rival = skillRepository.save(
+                new Skill(namespace.getId(), "postgres-toolkit", rivalId, SkillVisibility.PUBLIC));
+        SkillVersion rivalVersion = new SkillVersion(rival.getId(), "0.1.0", rivalId);
+        rivalVersion.setStatus(SkillVersionStatus.PUBLISHED);
+        rivalVersion.setPublishedAt(Instant.now());
+        skillVersionRepository.save(rivalVersion);
+
+        GitSourceRecord source = newSource(namespace.getSlug(), publisherId);
+        GitRepositoryFetcher fetcher = fakeFetcher();
+        GitSyncExecutor executor = executor(fetcher);
+        GitSourcePlanService planService = new GitSourcePlanService(store, fetcher,
+                new GitCredentialResolver(),
+                metadataParser, urlPolicy(), precheck(), Clock.fixed(NOW, ZoneOffset.UTC));
+
+        GitImportPlanResponse plan = new GitSyncAdminService(store, namespaceRepository, planService,
+                executor, mirrorStore(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
+                auditLogService, objectMapper, messages(),
+                Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id(), "admin-1", true);
+
+        // A directory the pre-check rejects is a predicted failure, not an addition.
+        assertEquals(0, plan.added());
+        assertEquals(1, plan.failing());
+        assertThat(plan.items().getFirst().failing()).isTrue();
+        assertEquals(1, plan.items().getFirst().problems().size());
+        assertThat(plan.items().getFirst().problems().getFirst()).contains("postgres-toolkit");
+
+        // The dry-run must not touch the registry: the rival's skill is still the only one.
+        assertThat(skillRepository.findByNamespaceIdAndSlug(namespace.getId(), "postgres-toolkit")).hasSize(1);
     }
 
     @Test
@@ -250,10 +301,10 @@ class GitSyncPostgresIntegrationTest {
         // Dry run first: it must not modify the registry and must report one addition.
         GitSourcePlanService planService = new GitSourcePlanService(store, fetcher,
                 new GitCredentialResolver(),
-                metadataParser, urlPolicy(), Clock.fixed(NOW, ZoneOffset.UTC));
+                metadataParser, urlPolicy(), precheck(), Clock.fixed(NOW, ZoneOffset.UTC));
         GitImportPlanResponse plan = new GitSyncAdminService(store, namespaceRepository, planService,
                 executor, mirrorStore(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
-                auditLogService, objectMapper,
+                auditLogService, objectMapper, messages(),
                 Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id(), "admin-1", true);
         assertEquals(1, plan.added());
         assertThat(skillRepository.findByNamespaceIdAndSlug(namespace.getId(), "postgres-toolkit")).isEmpty();

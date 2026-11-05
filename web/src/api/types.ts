@@ -548,6 +548,10 @@ export interface GitImportPlanItem {
   skillId: number | null
   fileCount: number
   skippedFiles: GitSkippedFile[]
+  /** Reasons a sync would fail to import this directory; empty when it will import. */
+  problems: string[]
+  /** The pre-check expects this directory's import to fail. */
+  failing: boolean
 }
 
 export interface GitImportPlan {
@@ -560,6 +564,8 @@ export interface GitImportPlan {
   changed: number
   unchanged: number
   removed: number
+  /** Directories the next sync would fail to import. */
+  failing: number
   items: GitImportPlanItem[]
 }
 

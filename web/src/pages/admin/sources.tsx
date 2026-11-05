@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { GitBranch, KeyRound } from 'lucide-react'
+import { GitBranch, KeyRound, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type {
   ManagedNamespace,
@@ -239,10 +239,20 @@ export function needsPrivateKey(repoUrl: string) {
   return /^ssh:\/\//i.test(trimmed) || /^[\w.-]+@[\w.-]+:/.test(trimmed)
 }
 
+export function changeTypeKey(changeType: string) {
+  if (changeType === 'ADDED') return 'adminSources.planAdded'
+  if (changeType === 'CHANGED') return 'adminSources.planChanged'
+  if (changeType === 'UNCHANGED') return 'adminSources.planUnchanged'
+  if (changeType === 'REMOVED') return 'adminSources.planRemoved'
+  // An enum the UI does not know yet is shown verbatim rather than blanked out.
+  return changeType
+}
+
 function changeTypeClass(changeType: string) {
   if (changeType === 'ADDED') return 'text-emerald-600 border-emerald-500/40'
   if (changeType === 'CHANGED') return 'text-amber-600 border-amber-500/40'
   if (changeType === 'REMOVED') return 'text-rose-600 border-rose-500/40'
+  if (changeType === 'FAILED') return 'text-destructive border-destructive/50'
   return 'text-muted-foreground border-border/60'
 }
 
@@ -258,6 +268,48 @@ function syncStatusClass(status: string | null) {
  * lines is what makes a long precheck failure readable. Long runs stay
  * collapsed so one verbose precheck failure cannot push the rest out of view.
  */
+export function ProblemsDetail({
+  problems,
+  t,
+}: {
+  problems: string[]
+  t: (key: string, options?: Record<string, unknown>) => string
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium text-destructive">
+        {t('adminSources.problemsDetailTitle', { n: problems.length })}
+      </div>
+      <ul className="space-y-1 text-xs text-destructive">
+        {problems.map((problem) => (
+          <li key={problem}>{problem}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+export function SkippedFilesDetail({
+  files,
+  t,
+}: {
+  files: Array<{ path: string; reason: string }>
+  t: (key: string, options?: Record<string, unknown>) => string
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium">{t('adminSources.skippedDetailTitle', { n: files.length })}</div>
+      <ul className="max-h-48 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+        {files.map((file) => (
+          <li key={file.path}>
+            <span className="font-mono">{file.path}</span>：{file.reason}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function RunNotes({ message }: { message: string | null | undefined }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -350,9 +402,15 @@ export function AdminSourcesPage() {
         ? 'adminSources.credentialDeployToken'
         : 'adminSources.authNone'
   const [plan, setPlan] = useState<GitImportPlan | null>(null)
+  // Long per-row detail (skipped files, pre-check reasons) would bury the table;
+  // one row of detail opens on demand, and only one at a time.
+  const [detail, setDetail] = useState<{ path: string; kind: 'skipped' | 'problems' } | null>(null)
   const [planSource, setPlanSource] = useState<GitSource | null>(null)
   const [runsSource, setRunsSource] = useState<GitSource | null>(null)
   const [itemsSource, setItemsSource] = useState<GitSource | null>(null)
+
+  const toggleDetail = (path: string, kind: 'skipped' | 'problems') =>
+    setDetail(detail && detail.path === path && detail.kind === kind ? null : { path, kind })
 
   const { data: runs, isLoading: runsLoading } = useGitSourceRuns(runsSource?.id, Boolean(runsSource))
   const { data: items, isLoading: itemsLoading } = useGitSourceItems(itemsSource?.id, Boolean(itemsSource))
@@ -417,6 +475,7 @@ export function AdminSourcesPage() {
   const handlePlan = async (source: GitSource) => {
     setPlanSource(source)
     setPlan(null)
+    setDetail(null)
     try {
       const result = await planMutation.mutateAsync(source.id)
       setPlan(result)
@@ -767,6 +826,7 @@ export function AdminSourcesPage() {
           if (!open) {
             setPlanSource(null)
             setPlan(null)
+            setDetail(null)
           }
         }}
       >
@@ -777,7 +837,13 @@ export function AdminSourcesPage() {
           </DialogHeader>
 
           {!plan ? (
-            <div className="h-24 animate-shimmer rounded-lg" />
+            <div className="flex flex-col items-center justify-center gap-3 py-10" role="status" aria-live="polite">
+              <Loader2 className="h-7 w-7 animate-spin" style={{ color: 'hsl(var(--text-secondary))' }} />
+              <p className="text-sm font-medium">{t('adminSources.planLoading')}</p>
+              <p className="text-center text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                {t('adminSources.planLoadingHint')}
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-5">
@@ -786,6 +852,7 @@ export function AdminSourcesPage() {
                   { key: 'changed', label: t('adminSources.planChanged'), value: plan.changed },
                   { key: 'unchanged', label: t('adminSources.planUnchanged'), value: plan.unchanged },
                   { key: 'removed', label: t('adminSources.planRemoved'), value: plan.removed },
+                  { key: 'failing', label: t('adminSources.planFailed'), value: plan.failing },
                   { key: 'total', label: t('adminSources.planTotal'), value: plan.items.length },
                 ].map((entry) => (
                   <div key={entry.key} className="rounded-xl border border-border/60 p-3">
@@ -794,6 +861,17 @@ export function AdminSourcesPage() {
                   </div>
                 ))}
               </div>
+
+              {plan.failing > 0 ? (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+                  <div className="text-sm font-medium text-destructive">
+                    {t('adminSources.planFailingTitle', { n: plan.failing })}
+                  </div>
+                  <p className="mt-1 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                    {t('adminSources.planFailingHint')}
+                  </p>
+                </div>
+              ) : null}
 
               <div className="text-xs text-muted-foreground">
                 {t('adminSources.planCommit', { ref: plan.ref, sha: plan.commitSha.slice(0, 8) })}
@@ -811,35 +889,68 @@ export function AdminSourcesPage() {
                       <TableHead>{t('adminSources.colSkillName')}</TableHead>
                       <TableHead>{t('adminSources.colFileCount')}</TableHead>
                       <TableHead>{t('adminSources.colSkipped')}</TableHead>
+                      <TableHead>{t('adminSources.colPrecheck')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {plan.items.map((item) => (
-                      <TableRow key={item.itemPath}>
-                        <TableCell>
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.changeType)}`}
-                          >
-                            {item.changeType}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{item.itemPath || '/'}</TableCell>
-                        <TableCell>{item.skillName}</TableCell>
-                        <TableCell>{item.fileCount}</TableCell>
-                        <TableCell>
-                          {item.skippedFiles.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
-                            <ul className="space-y-1 text-xs text-muted-foreground">
-                              {item.skippedFiles.map((file) => (
-                                <li key={file.path}>
-                                  <span className="font-mono">{file.path}</span>: {file.reason}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                      <Fragment key={item.itemPath}>
+                        <TableRow>
+                          <TableCell>
+                            <span
+                              className={`inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.failing ? 'FAILED' : item.changeType)}`}
+                            >
+                              {t(item.failing ? 'adminSources.planFailed' : changeTypeKey(item.changeType))}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{item.itemPath || '/'}</TableCell>
+                          <TableCell>{item.skillName}</TableCell>
+                          <TableCell>{item.fileCount}</TableCell>
+                          <TableCell>
+                            {item.skippedFiles.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="whitespace-nowrap text-xs text-muted-foreground underline-offset-4 hover:underline"
+                                aria-expanded={detail?.path === item.itemPath && detail.kind === 'skipped'}
+                                title={t('adminSources.skippedToggleHint')}
+                                onClick={() => toggleDetail(item.itemPath, 'skipped')}
+                              >
+                                {t('adminSources.skippedCount', { n: item.skippedFiles.length })}
+                              </button>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.problems.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className={`whitespace-nowrap text-xs font-medium underline-offset-4 hover:underline ${
+                                  item.failing ? 'text-destructive' : 'text-muted-foreground'
+                                }`}
+                                aria-expanded={detail?.path === item.itemPath && detail.kind === 'problems'}
+                                title={t(item.failing ? 'adminSources.problemsToggleHint' : 'adminSources.problemsUnchangedHint')}
+                                onClick={() => toggleDetail(item.itemPath, 'problems')}
+                              >
+                                {t('adminSources.problemsCount', { n: item.problems.length })}
+                              </button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {detail?.path === item.itemPath ? (
+                          <TableRow data-testid="plan-detail">
+                            <TableCell colSpan={6} className="bg-muted/40">
+                              {detail.kind === 'skipped' ? (
+                                <SkippedFilesDetail files={item.skippedFiles} t={t} />
+                              ) : (
+                                <ProblemsDetail problems={item.problems} t={t} />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>

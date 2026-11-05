@@ -2,6 +2,7 @@ package com.iflytek.skillhub.gitsync;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -17,13 +18,16 @@ import com.iflytek.skillhub.gitsync.git.GitRepositoryRef;
 import com.iflytek.skillhub.gitsync.git.GitTreeEntry;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlan;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlanItem;
+import com.iflytek.skillhub.gitsync.plan.PlanProblem;
 import com.iflytek.skillhub.gitsync.scan.GitSkillDiscovery;
+import com.iflytek.skillhub.gitsync.scan.GitSourceScan;
 import com.iflytek.skillhub.gitsync.store.GitSourceItemRecord;
 import com.iflytek.skillhub.gitsync.store.GitSourceRecord;
 import com.iflytek.skillhub.gitsync.store.GitSourceStore;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,12 +50,15 @@ class GitSourcePlanServiceTest {
     @Mock
     private GitCredentialResolver credentialResolver;
 
+    @Mock
+    private GitPlanPrecheck precheck;
+
     private GitSourcePlanService service;
 
     @BeforeEach
     void setUp() {
         service = new GitSourcePlanService(store, fetcher, credentialResolver, new SkillMetadataParser(),
-                allowAllHosts(),
+                allowAllHosts(), precheck,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -211,6 +218,104 @@ class GitSourcePlanServiceTest {
                 .willThrow(new GitProviderException("repository not found"));
 
         assertThrows(GitProviderException.class, () -> service.plan(source("")));
+    }
+
+
+    @Test
+    void planPredictsPublishFailuresForTheDryRun() {
+        givenTree(blob("skills/pdf/SKILL.md", "s1"));
+        given(store.findItems(7L)).willReturn(List.of());
+        given(precheck.check(any(), eq("pdf-helper")))
+                .willReturn(List.of(PlanProblem.of("error.skill.publish.nameConflict", "pdf-helper")));
+
+        GitImportPlan plan = service.plan(source(""));
+
+        assertEquals(List.of("error.skill.publish.nameConflict"),
+                item(plan, "skills/pdf").problems().stream().map(PlanProblem::code).toList());
+        assertTrue(item(plan, "skills/pdf").willFail());
+        assertEquals(1, plan.failing());
+    }
+
+
+    @Test
+    void unchangedDirectoryWithAProblemIsNotCountedAsAPredictedFailure() {
+        givenTree(blob("skills/pdf/SKILL.md", "s1"));
+        String treeSha = GitSkillDiscovery.treeSha("skills/pdf", List.of(blob("skills/pdf/SKILL.md", "s1")));
+        given(store.findItems(7L)).willReturn(List.of(new GitSourceItemRecord(1L, 7L, "skills/pdf", "pdf",
+                treeSha, COMMIT, 42L, GitSourceItemRecord.STATE_IMPORTED, NOW, NOW)));
+        given(precheck.check(any(), eq("pdf-helper")))
+                .willReturn(List.of(PlanProblem.of("error.skill.publish.nameConflict", "pdf-helper")));
+
+        GitImportPlan plan = service.plan(source(""));
+
+        // The executor never imports an unchanged directory, so its problem
+        // cannot fail the run: it is reported, but stays out of the failure count.
+        assertEquals(GitImportPlanItem.ChangeType.UNCHANGED, item(plan, "skills/pdf").changeType());
+        assertEquals(List.of("error.skill.publish.nameConflict"),
+                item(plan, "skills/pdf").problems().stream().map(PlanProblem::code).toList());
+        assertEquals(0, plan.failing());
+        assertEquals(1, plan.count(GitImportPlanItem.ChangeType.UNCHANGED));
+    }
+
+    @Test
+    void planPredictsDirectoriesThatExceedTheFileCountLimit() {
+        List<GitTreeEntry> files = new ArrayList<>();
+        files.add(blob("skills/big/SKILL.md", "s0"));
+        for (int i = 0; i < 100; i++) {
+            files.add(blob("skills/big/file-" + i + ".txt", "f" + i));
+        }
+        givenTree(files.toArray(GitTreeEntry[]::new));
+        given(store.findItems(7L)).willReturn(List.of());
+
+        GitImportPlan plan = service.plan(source(""));
+
+        assertEquals(101, item(plan, "skills/big").fileCount());
+        assertEquals(List.of("gitsync.plan.problem.tooManyFiles"),
+                item(plan, "skills/big").problems().stream().map(PlanProblem::code).toList());
+        assertTrue(item(plan, "skills/big").willFail());
+    }
+
+    @Test
+    void planPredictsDirectoriesThatExceedThePackageSizeLimit() {
+        List<GitTreeEntry> files = new ArrayList<>();
+        files.add(blob("skills/huge/SKILL.md", "s0"));
+        for (int i = 0; i < 11; i++) {
+            files.add(new GitTreeEntry("skills/huge/data-" + i + ".txt", "blob", "d" + i, 10L * 1024 * 1024));
+        }
+        givenTree(files.toArray(GitTreeEntry[]::new));
+        given(store.findItems(7L)).willReturn(List.of());
+
+        GitImportPlan plan = service.plan(source(""));
+
+        assertEquals(List.of("gitsync.plan.problem.packageTooLarge"),
+                item(plan, "skills/huge").problems().stream().map(PlanProblem::code).toList());
+    }
+
+    @Test
+    void schedulerPlanningSkipsTheDryRunPrechecks() {
+        givenTree(blob("skills/pdf/SKILL.md", "s1"));
+        given(store.findItems(7L)).willReturn(List.of());
+
+        GitSourceScan scan = service.scan(source(""));
+        GitImportPlan plan = service.plan(source(""), scan);
+
+        assertTrue(item(plan, "skills/pdf").problems().isEmpty());
+        assertEquals(0, plan.failing());
+        then(precheck).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void planReportsAnUnparseableSkillDocument() {
+        givenTree(blob("skills/broken/SKILL.md", "s1"));
+        given(store.findItems(7L)).willReturn(List.of());
+        given(fetcher.readFile(any(), any(), any()))
+                .willReturn("---\nname: Broken\n---\n");
+
+        GitImportPlan plan = service.plan(source(""));
+
+        assertEquals(List.of("error.skill.metadata.requiredField.missing"),
+                item(plan, "skills/broken").problems().stream().map(PlanProblem::code).toList());
+        assertEquals("broken", item(plan, "skills/broken").skillName());
     }
 
     private static GitImportPlanItem item(GitImportPlan plan, String itemPath) {
