@@ -239,6 +239,15 @@ export function needsPrivateKey(repoUrl: string) {
   return /^ssh:\/\//i.test(trimmed) || /^[\w.-]+@[\w.-]+:/.test(trimmed)
 }
 
+export function changeTypeKey(changeType: string) {
+  if (changeType === 'ADDED') return 'adminSources.planAdded'
+  if (changeType === 'CHANGED') return 'adminSources.planChanged'
+  if (changeType === 'UNCHANGED') return 'adminSources.planUnchanged'
+  if (changeType === 'REMOVED') return 'adminSources.planRemoved'
+  // An enum the UI does not know yet is shown verbatim rather than blanked out.
+  return changeType
+}
+
 function changeTypeClass(changeType: string) {
   if (changeType === 'ADDED') return 'text-emerald-600 border-emerald-500/40'
   if (changeType === 'CHANGED') return 'text-amber-600 border-amber-500/40'
@@ -862,9 +871,9 @@ export function AdminSourcesPage() {
                         <TableRow>
                           <TableCell>
                             <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.changeType)}`}
+                              className={`inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.changeType)}`}
                             >
-                              {item.changeType}
+                              {t(changeTypeKey(item.changeType))}
                             </span>
                           </TableCell>
                           <TableCell className="font-mono text-xs">{item.itemPath || '/'}</TableCell>

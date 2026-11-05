@@ -56,6 +56,7 @@ import {
   validateSourceFormState,
   RunNotes,
   SkippedFilesDetail,
+  changeTypeKey,
   splitNotes,
 } from './sources'
 
@@ -239,6 +240,20 @@ describe('SkippedFilesDetail', () => {
     expect(html).toContain('LICENSE')
     expect(html).toContain('file type is not accepted by the registry')
     expect(html).toContain('samples/big.mp4')
+  })
+})
+
+
+describe('changeTypeKey', () => {
+  it('maps every plan change type to its label instead of leaking the enum', () => {
+    expect(changeTypeKey('ADDED')).toBe('adminSources.planAdded')
+    expect(changeTypeKey('CHANGED')).toBe('adminSources.planChanged')
+    expect(changeTypeKey('UNCHANGED')).toBe('adminSources.planUnchanged')
+    expect(changeTypeKey('REMOVED')).toBe('adminSources.planRemoved')
+  })
+
+  it('falls back to the raw value for a change type the UI does not know yet', () => {
+    expect(changeTypeKey('RENAMED')).toBe('RENAMED')
   })
 })
 
