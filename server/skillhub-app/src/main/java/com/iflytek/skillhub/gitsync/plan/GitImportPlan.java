@@ -17,4 +17,9 @@ public record GitImportPlan(Long sourceId,
     public long count(GitImportPlanItem.ChangeType changeType) {
         return items.stream().filter(item -> item.changeType() == changeType).count();
     }
+
+    /** Directories a sync would fail to import, according to the prechecks. */
+    public long failing() {
+        return items.stream().filter(GitImportPlanItem::willFail).count();
+    }
 }

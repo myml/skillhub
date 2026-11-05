@@ -5,6 +5,9 @@ import java.util.List;
 
 /**
  * Dry-run import plan for a source.
+ *
+ * @param failing directories the next sync would fail to import
+ * @param items   one entry per skill directory, including the reasons it would fail
  */
 public record GitImportPlanResponse(Long sourceId,
                                     String ref,
@@ -15,6 +18,7 @@ public record GitImportPlanResponse(Long sourceId,
                                     long changed,
                                     long unchanged,
                                     long removed,
+                                    long failing,
                                     List<Item> items) {
 
     public record Item(String itemPath,
@@ -24,7 +28,8 @@ public record GitImportPlanResponse(Long sourceId,
                        String previousTreeSha,
                        Long skillId,
                        int fileCount,
-                       List<SkippedFile> skippedFiles) {
+                       List<SkippedFile> skippedFiles,
+                       List<String> problems) {
     }
 
     /**

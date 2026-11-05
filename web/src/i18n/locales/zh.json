@@ -1482,7 +1482,12 @@
     "visibilityNamespaceOnly": "仅命名空间内可见",
     "formVisibilityHint": "可见性由目标命名空间决定：global 导入为公开，其他命名空间仅成员可见，与手动发布一致。",
     "selectNamespace": "选择命名空间",
-    "formNamespaceHint": "导入后的可见性：{{visibility}}（由命名空间类型决定，与手动发布一致）。"
+    "formNamespaceHint": "导入后的可见性：{{visibility}}（由命名空间类型决定，与手动发布一致）。",
+    "planLoading": "正在读取仓库…",
+    "planLoadingHint": "首次同步需要先在服务端拉取仓库；仓库较大或目录较多时会慢一些，请稍等。",
+    "planFailingTitle": "预计 {{n}} 个目录同步时会失败",
+    "planFailingHint": "最后一列是每个目录的失败原因（重名、不是命名空间成员、文件数或体积超限、SKILL.md 无法解析等）。处理掉这些原因后再同步，失败目录会一直重试。",
+    "colPrecheck": "预检"
   },
   "skillSource": {
     "title": "来源",

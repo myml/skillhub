@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from 'react'
-import { GitBranch, KeyRound } from 'lucide-react'
+import { GitBranch, KeyRound, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type {
   ManagedNamespace,
@@ -777,7 +777,13 @@ export function AdminSourcesPage() {
           </DialogHeader>
 
           {!plan ? (
-            <div className="h-24 animate-shimmer rounded-lg" />
+            <div className="flex flex-col items-center justify-center gap-3 py-10" role="status" aria-live="polite">
+              <Loader2 className="h-7 w-7 animate-spin" style={{ color: 'hsl(var(--text-secondary))' }} />
+              <p className="text-sm font-medium">{t('adminSources.planLoading')}</p>
+              <p className="text-center text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                {t('adminSources.planLoadingHint')}
+              </p>
+            </div>
           ) : (
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-5">
@@ -795,6 +801,17 @@ export function AdminSourcesPage() {
                 ))}
               </div>
 
+              {plan.failing > 0 ? (
+                <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3">
+                  <div className="text-sm font-medium text-destructive">
+                    {t('adminSources.planFailingTitle', { n: plan.failing })}
+                  </div>
+                  <p className="mt-1 text-xs" style={{ color: 'hsl(var(--muted-foreground))' }}>
+                    {t('adminSources.planFailingHint')}
+                  </p>
+                </div>
+              ) : null}
+
               <div className="text-xs text-muted-foreground">
                 {t('adminSources.planCommit', { ref: plan.ref, sha: plan.commitSha.slice(0, 8) })}
                 {plan.subpath ? ` · ${plan.subpath}` : ''}
@@ -811,6 +828,7 @@ export function AdminSourcesPage() {
                       <TableHead>{t('adminSources.colSkillName')}</TableHead>
                       <TableHead>{t('adminSources.colFileCount')}</TableHead>
                       <TableHead>{t('adminSources.colSkipped')}</TableHead>
+                      <TableHead>{t('adminSources.colPrecheck')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -835,6 +853,17 @@ export function AdminSourcesPage() {
                                 <li key={file.path}>
                                   <span className="font-mono">{file.path}</span>: {file.reason}
                                 </li>
+                              ))}
+                            </ul>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {item.problems.length === 0 ? (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          ) : (
+                            <ul className="space-y-1 text-xs text-destructive">
+                              {item.problems.map((problem) => (
+                                <li key={problem}>{problem}</li>
                               ))}
                             </ul>
                           )}

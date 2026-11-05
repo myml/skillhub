@@ -1,13 +1,17 @@
 package com.iflytek.skillhub.gitsync;
 
+import com.iflytek.skillhub.domain.namespace.SlugValidator;
+import com.iflytek.skillhub.domain.shared.exception.LocalizedDomainException;
 import com.iflytek.skillhub.domain.skill.metadata.SkillMetadata;
 import com.iflytek.skillhub.domain.skill.metadata.SkillMetadataParser;
+import com.iflytek.skillhub.domain.skill.validation.SkillPackagePolicy;
 import com.iflytek.skillhub.gitsync.git.GitCommitRef;
 import com.iflytek.skillhub.gitsync.git.GitRepositoryFetcher;
 import com.iflytek.skillhub.gitsync.git.GitRepositoryRef;
 import com.iflytek.skillhub.gitsync.git.GitTreeEntry;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlan;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlanItem;
+import com.iflytek.skillhub.gitsync.plan.PlanProblem;
 import com.iflytek.skillhub.gitsync.scan.DiscoveredSkill;
 import com.iflytek.skillhub.gitsync.scan.GitSkillDiscovery;
 import com.iflytek.skillhub.gitsync.scan.GitSourceScan;
@@ -35,6 +39,11 @@ import org.springframework.stereotype.Service;
  * <p>Change detection compares the per-directory fingerprint computed by
  * {@link GitSkillDiscovery} against the fingerprint stored for the previous
  * sync, so unrelated commits do not mark a skill as changed.
+ *
+ * <p>The dry-run additionally predicts which directories a sync would fail to
+ * import (see {@link GitPlanPrecheck}); scheduling runs skip that prediction,
+ * since they would otherwise repeat the same registry lookups every few
+ * minutes for a result nobody reads.
  */
 @Service
 public class GitSourcePlanService {
@@ -46,6 +55,7 @@ public class GitSourcePlanService {
     private final GitCredentialResolver credentialResolver;
     private final SkillMetadataParser metadataParser;
     private final GitSyncUrlPolicy urlPolicy;
+    private final GitPlanPrecheck precheck;
     private final Clock clock;
 
     public GitSourcePlanService(GitSourceStore store,
@@ -53,12 +63,14 @@ public class GitSourcePlanService {
                                 GitCredentialResolver credentialResolver,
                                 SkillMetadataParser metadataParser,
                                 GitSyncUrlPolicy urlPolicy,
+                                GitPlanPrecheck precheck,
                                 Clock clock) {
         this.store = store;
         this.fetcher = fetcher;
         this.credentialResolver = credentialResolver;
         this.metadataParser = metadataParser;
         this.urlPolicy = urlPolicy;
+        this.precheck = precheck;
         this.clock = clock;
     }
 
@@ -82,14 +94,24 @@ public class GitSourcePlanService {
                 List.copyOf(discovered), Map.copyOf(previousItems));
     }
 
+    /**
+     * Dry-run used by the management API: includes the predicted-failure list.
+     */
     public GitImportPlan plan(GitSourceRecord source) {
-        return plan(source, scan(source));
+        return plan(source, scan(source), true);
     }
 
     /**
      * Builds the plan for an already completed scan.
+     *
+     * <p>Used by the executor, which does not need the predictions: it publishes
+     * anyway, and the publish itself reports any real failure.
      */
     public GitImportPlan plan(GitSourceRecord source, GitSourceScan scan) {
+        return plan(source, scan, false);
+    }
+
+    private GitImportPlan plan(GitSourceRecord source, GitSourceScan scan, boolean withPrechecks) {
         GitRepositoryRef repository = repository(source);
 
         List<GitImportPlanItem> items = new ArrayList<>();
@@ -98,15 +120,17 @@ public class GitSourcePlanService {
             seenPaths.add(skill.itemPath());
             GitSourceItemRecord previous = scan.previousItems().get(skill.itemPath());
             GitFileSelection selection = GitSkillFilePolicy.select(skill.files(), skill.itemPath());
+            PlanDocument document = readSkillDocument(fetcher, repository, scan.commitSha(), skill);
             items.add(new GitImportPlanItem(
                     skill.itemPath(),
-                    resolveSkillName(fetcher, repository, scan.commitSha(), skill),
+                    displayName(document, skill),
                     skill.treeSha(),
                     classify(previous, skill),
                     previous == null ? null : previous.treeSha(),
                     previous == null ? null : previous.skillId(),
                     selection.selected().size(),
-                    selection.skipped()
+                    selection.skipped(),
+                    withPrechecks ? problemsFor(source, document, selection) : List.of()
             ));
         }
 
@@ -120,6 +144,7 @@ public class GitSourcePlanService {
                         previous.treeSha(),
                         previous.skillId(),
                         0,
+                        List.of(),
                         List.of()
                 ));
             }
@@ -157,25 +182,80 @@ public class GitSourcePlanService {
     }
 
     /**
-     * Reads the skill name from {@code SKILL.md}; a broken document only degrades
-     * the display name, it does not fail the plan.
+     * Registry-side and package-side reasons the directory would not import.
+     *
+     * <p>A directory whose document cannot be parsed reports that instead of the
+     * name checks: without a name there is no slug to compare.
      */
-    private String resolveSkillName(GitRepositoryFetcher fetcher,
-                                    GitRepositoryRef repository,
-                                    String commitSha,
-                                    DiscoveredSkill skill) {
+    private List<PlanProblem> problemsFor(GitSourceRecord source, PlanDocument document, GitFileSelection selection) {
+        List<PlanProblem> problems = new ArrayList<>(limitProblems(selection));
+        if (document.problem() != null) {
+            problems.add(document.problem());
+        } else if (document.metadata() != null) {
+            problems.addAll(precheck.check(source, SlugValidator.slugify(document.metadata().name())));
+        }
+        return List.copyOf(problems);
+    }
+
+    /**
+     * The registry's hard package limits, which a sync cannot work around: too
+     * many files, a package that is too large, or no {@code SKILL.md} at the
+     * directory root.
+     */
+    static List<PlanProblem> limitProblems(GitFileSelection selection) {
+        List<PlanProblem> problems = new ArrayList<>();
+        int fileCount = selection.selected().size();
+        if (fileCount > SkillPackagePolicy.MAX_FILE_COUNT) {
+            problems.add(PlanProblem.of("gitsync.plan.problem.tooManyFiles",
+                    fileCount, SkillPackagePolicy.MAX_FILE_COUNT));
+        }
+        long totalBytes = selection.selected().stream()
+                .mapToLong(file -> file.entry().size())
+                .sum();
+        if (totalBytes > SkillPackagePolicy.MAX_TOTAL_PACKAGE_SIZE) {
+            problems.add(PlanProblem.of("gitsync.plan.problem.packageTooLarge",
+                    megabytes(totalBytes), megabytes(SkillPackagePolicy.MAX_TOTAL_PACKAGE_SIZE)));
+        }
+        if (selection.selected().stream()
+                .noneMatch(file -> SkillPackagePolicy.SKILL_MD_PATH.equals(file.packagePath()))) {
+            problems.add(PlanProblem.of("gitsync.plan.problem.missingSkillMd"));
+        }
+        return problems;
+    }
+
+    private static long megabytes(long bytes) {
+        return Math.max(1L, bytes / (1024L * 1024L));
+    }
+
+    private String displayName(PlanDocument document, DiscoveredSkill skill) {
+        if (document.metadata() != null && document.metadata().name() != null
+                && !document.metadata().name().isBlank()) {
+            return document.metadata().name();
+        }
+        return fallbackName(skill.itemPath());
+    }
+
+    /**
+     * Reads and parses {@code SKILL.md} once, keeping the failure instead of
+     * swallowing it: the same document decides the displayed name and whether
+     * the directory can be imported at all.
+     */
+    private PlanDocument readSkillDocument(GitRepositoryFetcher fetcher,
+                                           GitRepositoryRef repository,
+                                           String commitSha,
+                                           DiscoveredSkill skill) {
         String documentPath = skill.itemPath().isEmpty()
                 ? GitSkillDiscovery.SKILL_DOCUMENT
                 : skill.itemPath() + "/" + GitSkillDiscovery.SKILL_DOCUMENT;
         try {
-            SkillMetadata metadata = metadataParser.parse(fetcher.readFile(repository, commitSha, documentPath));
-            if (metadata.name() != null && !metadata.name().isBlank()) {
-                return metadata.name();
-            }
+            return new PlanDocument(metadataParser.parse(fetcher.readFile(repository, commitSha, documentPath)), null);
+        } catch (LocalizedDomainException ex) {
+            return new PlanDocument(null, new PlanProblem(ex.messageCode(), List.of(ex.messageArgs())));
         } catch (RuntimeException ex) {
             log.debug("Could not read skill metadata from {}: {}", documentPath, ex.getMessage());
+            return new PlanDocument(null, PlanProblem.of("gitsync.plan.problem.skillDocumentUnreadable",
+                    String.valueOf(ex.getMessage())));
         }
-        return fallbackName(skill.itemPath());
     }
 
     private static String fallbackName(String itemPath) {
@@ -184,5 +264,12 @@ public class GitSourcePlanService {
         }
         int slash = itemPath.lastIndexOf('/');
         return slash < 0 ? itemPath : itemPath.substring(slash + 1);
+    }
+
+    /**
+     * Result of reading one {@code SKILL.md}: either parsed metadata or the
+     * reason it could not be used.
+     */
+    private record PlanDocument(SkillMetadata metadata, PlanProblem problem) {
     }
 }

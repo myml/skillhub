@@ -11,6 +11,7 @@ import java.util.List;
  * @param skillId        already imported skill, when known
  * @param fileCount      number of files that would be imported
  * @param skippedFiles   repository files the registry would not accept
+ * @param problems       reasons a sync would fail to import this directory; empty when it will import
  */
 public record GitImportPlanItem(String itemPath,
                                 String skillName,
@@ -19,7 +20,13 @@ public record GitImportPlanItem(String itemPath,
                                 String previousTreeSha,
                                 Long skillId,
                                 int fileCount,
-                                List<SkippedGitFile> skippedFiles) {
+                                List<SkippedGitFile> skippedFiles,
+                                List<PlanProblem> problems) {
+
+    public GitImportPlanItem {
+        skippedFiles = skippedFiles == null ? List.of() : List.copyOf(skippedFiles);
+        problems = problems == null ? List.of() : List.copyOf(problems);
+    }
 
     public enum ChangeType {
         /** Never imported before. */
@@ -30,5 +37,16 @@ public record GitImportPlanItem(String itemPath,
         UNCHANGED,
         /** Previously imported, but no longer present in the repository. */
         REMOVED
+    }
+
+    /**
+     * Whether a sync would fail to import this directory.
+     *
+     * <p>An unchanged directory is not re-imported, so its problems only surface
+     * when the content changes; it is still reported, because the dry-run is the
+     * place to notice them.
+     */
+    public boolean willFail() {
+        return !problems.isEmpty() && changeType != ChangeType.REMOVED;
     }
 }

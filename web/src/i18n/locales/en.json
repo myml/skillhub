@@ -1482,7 +1482,12 @@
     "visibilityNamespaceOnly": "Namespace members only",
     "formVisibilityHint": "Visibility follows the target namespace: imports into global are public, imports into a team namespace are visible to its members - the same rule as a manual publish.",
     "selectNamespace": "Select a namespace",
-    "formNamespaceHint": "Imported skills will be {{visibility}} (decided by the namespace type, the same as a manual publish)."
+    "formNamespaceHint": "Imported skills will be {{visibility}} (decided by the namespace type, the same as a manual publish).",
+    "planLoading": "Reading the repository…",
+    "planLoadingHint": "The first run clones the repository on the server; large repositories take longer.",
+    "planFailingTitle": "{{n}} directory/directories will fail to sync",
+    "planFailingHint": "The last column lists why each directory would fail (name conflict, publisher not a member, too many or too large files, unparseable SKILL.md). Fix them before syncing; failed directories are retried on every run.",
+    "colPrecheck": "Precheck"
   },
   "skillSource": {
     "title": "Source",

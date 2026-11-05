@@ -184,7 +184,7 @@ class GitSyncExecutorTest {
 
     private static GitImportPlanItem item(String itemPath, GitImportPlanItem.ChangeType changeType, Long skillId) {
         return new GitImportPlanItem(itemPath, "PDF Toolkit", "tree-" + itemPath, changeType, null, skillId, 2,
-                List.of());
+                List.of(), List.of());
     }
 
     private static DiscoveredSkill skill(String itemPath, GitTreeEntry... files) {
@@ -306,7 +306,7 @@ class GitSyncExecutorTest {
     void marksRemovedDirectoriesWithoutDeletingPublishedContent() {
         givenScan();
         givenPlan(new GitImportPlanItem("skills/gone", "Gone", "tree-gone",
-                GitImportPlanItem.ChangeType.REMOVED, "tree-gone", 43L, 0, List.of()));
+                GitImportPlanItem.ChangeType.REMOVED, "tree-gone", 43L, 0, List.of(), List.of()));
 
         GitSyncRunRecord run = executor.sync(5L, GitSyncExecutor.TRIGGER_MANUAL);
 

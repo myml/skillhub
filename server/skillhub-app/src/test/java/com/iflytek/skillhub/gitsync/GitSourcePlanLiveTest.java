@@ -82,7 +82,7 @@ class GitSourcePlanLiveTest {
 
         GitCliRepositoryFetcher fetcher = new GitCliRepositoryFetcher(mirrors());
         GitSourcePlanService service = new GitSourcePlanService(store, fetcher, credentials,
-                new SkillMetadataParser(), liveHostPolicy(), Clock.systemUTC());
+                new SkillMetadataParser(), liveHostPolicy(), mock(GitPlanPrecheck.class), Clock.systemUTC());
 
         GitSourceRecord source = new GitSourceRecord(1L, REPO_URL, REPO, REF, SUBPATH, "global",
                 TOKEN.isBlank() ? null : "live", "live", 60, true,

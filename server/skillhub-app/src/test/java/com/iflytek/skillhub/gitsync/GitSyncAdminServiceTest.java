@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -29,6 +30,7 @@ import com.iflytek.skillhub.gitsync.dto.GitSourceResponse;
 import com.iflytek.skillhub.domain.skill.SkillVisibility;
 import com.iflytek.skillhub.gitsync.git.GitMirrorStore;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlan;
+import com.iflytek.skillhub.gitsync.plan.PlanProblem;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlanItem;
 import com.iflytek.skillhub.gitsync.select.SkippedGitFile;
 import com.iflytek.skillhub.gitsync.store.GitSourceRecord;
@@ -48,6 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.MessageSource;
 
 @ExtendWith(MockitoExtension.class)
 class GitSyncAdminServiceTest {
@@ -75,6 +78,9 @@ class GitSyncAdminServiceTest {
     @Mock
     private AuditLogService auditLogService;
 
+    @Mock
+    private MessageSource messageSource;
+
     private GitSyncAdminService service;
 
     /**
@@ -91,8 +97,10 @@ class GitSyncAdminServiceTest {
     void setUp() {
         service = new GitSyncAdminService(store, namespaceRepository, planService, executor, mirrors,
                 allowAllHosts(), new GitSyncProperties(), namespaceMemberRepository, auditLogService,
-                new ObjectMapper(),
+                new ObjectMapper(), messageSource,
                 Clock.fixed(NOW, ZoneOffset.UTC));
+        lenient().when(messageSource.getMessage(anyString(), any(), anyString(), any()))
+                .thenAnswer(invocation -> invocation.getArgument(2));
         // Only the source list asks for per-source counts.
         lenient().when(store.countImportedBySource()).thenReturn(new HashMap<>());
     }
@@ -258,6 +266,25 @@ class GitSyncAdminServiceTest {
                 request("https://github.com/owner/repo", null, null), "admin-1", null));
     }
 
+
+    @Test
+    void planResponseLocalizesThePredictedFailures() {
+        GitSourceRecord source = record(5L);
+        given(store.findById(5L)).willReturn(Optional.of(source));
+        given(planService.plan(source)).willReturn(new GitImportPlan(5L, "main", "c".repeat(40), "",
+                List.of(new GitImportPlanItem("skills/pdf", "PDF Helper", "tree-1",
+                        GitImportPlanItem.ChangeType.ADDED, null, null, 2, List.of(),
+                        List.of(PlanProblem.of("error.skill.publish.nameConflict", "pdf-helper")))),
+                NOW));
+        given(messageSource.getMessage(eq("error.skill.publish.nameConflict"), any(), anyString(), any()))
+                .willReturn("已发布同名技能：pdf-helper");
+
+        var response = service.plan(5L, "admin-1", true);
+
+        assertEquals(1, response.failing());
+        assertEquals(List.of("已发布同名技能：pdf-helper"), response.items().getFirst().problems());
+    }
+
     @Test
     void planDelegatesToPlannerAndRecordsPlanningTime() {
         GitSourceRecord source = record(5L);
@@ -265,7 +292,7 @@ class GitSyncAdminServiceTest {
         given(planService.plan(source)).willReturn(new GitImportPlan(5L, "main", "c".repeat(40), "",
                 List.of(new GitImportPlanItem("skills/pdf", "PDF Helper", "tree-1",
                         GitImportPlanItem.ChangeType.ADDED, null, null, 3,
-                        List.of(new SkippedGitFile("LICENSE", "unsupported")))),
+                        List.of(new SkippedGitFile("LICENSE", "unsupported")), List.of())),
                 NOW));
 
         var response = service.plan(5L, "admin-1", true);
@@ -576,7 +603,7 @@ class GitSyncAdminServiceTest {
         limited.getLimits().setMaxSourcesPerUser(1);
         GitSyncAdminService quotaService = new GitSyncAdminService(store, namespaceRepository, planService,
                 executor, mirrors, allowAllHosts(), limited, namespaceMemberRepository, auditLogService,
-                new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
+                new ObjectMapper(), messageSource, Clock.fixed(NOW, ZoneOffset.UTC));
         given(store.countByCreatedBy("admin-1")).willReturn(1);
 
         DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
