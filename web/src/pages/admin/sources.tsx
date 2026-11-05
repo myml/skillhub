@@ -258,6 +258,27 @@ function syncStatusClass(status: string | null) {
  * lines is what makes a long precheck failure readable. Long runs stay
  * collapsed so one verbose precheck failure cannot push the rest out of view.
  */
+export function SkippedFilesDetail({
+  files,
+  t,
+}: {
+  files: Array<{ path: string; reason: string }>
+  t: (key: string, options?: Record<string, unknown>) => string
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="text-xs font-medium">{t('adminSources.skippedDetailTitle', { n: files.length })}</div>
+      <ul className="max-h-48 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+        {files.map((file) => (
+          <li key={file.path}>
+            <span className="font-mono">{file.path}</span>：{file.reason}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export function RunNotes({ message }: { message: string | null | undefined }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
@@ -350,6 +371,8 @@ export function AdminSourcesPage() {
         ? 'adminSources.credentialDeployToken'
         : 'adminSources.authNone'
   const [plan, setPlan] = useState<GitImportPlan | null>(null)
+  // The skipped-file list is long enough to bury the table; it opens on demand.
+  const [skippedDetail, setSkippedDetail] = useState<string | null>(null)
   const [planSource, setPlanSource] = useState<GitSource | null>(null)
   const [runsSource, setRunsSource] = useState<GitSource | null>(null)
   const [itemsSource, setItemsSource] = useState<GitSource | null>(null)
@@ -417,6 +440,7 @@ export function AdminSourcesPage() {
   const handlePlan = async (source: GitSource) => {
     setPlanSource(source)
     setPlan(null)
+    setSkippedDetail(null)
     try {
       const result = await planMutation.mutateAsync(source.id)
       setPlan(result)
@@ -767,6 +791,7 @@ export function AdminSourcesPage() {
           if (!open) {
             setPlanSource(null)
             setPlan(null)
+            setSkippedDetail(null)
           }
         }}
       >
@@ -833,42 +858,55 @@ export function AdminSourcesPage() {
                   </TableHeader>
                   <TableBody>
                     {plan.items.map((item) => (
-                      <TableRow key={item.itemPath}>
-                        <TableCell>
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.changeType)}`}
-                          >
-                            {item.changeType}
-                          </span>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">{item.itemPath || '/'}</TableCell>
-                        <TableCell>{item.skillName}</TableCell>
-                        <TableCell>{item.fileCount}</TableCell>
-                        <TableCell>
-                          {item.skippedFiles.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
-                            <ul className="space-y-1 text-xs text-muted-foreground">
-                              {item.skippedFiles.map((file) => (
-                                <li key={file.path}>
-                                  <span className="font-mono">{file.path}</span>: {file.reason}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {item.problems.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          ) : (
-                            <ul className="space-y-1 text-xs text-destructive">
-                              {item.problems.map((problem) => (
-                                <li key={problem}>{problem}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </TableCell>
-                      </TableRow>
+                      <Fragment key={item.itemPath}>
+                        <TableRow>
+                          <TableCell>
+                            <span
+                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.changeType)}`}
+                            >
+                              {item.changeType}
+                            </span>
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">{item.itemPath || '/'}</TableCell>
+                          <TableCell>{item.skillName}</TableCell>
+                          <TableCell>{item.fileCount}</TableCell>
+                          <TableCell>
+                            {item.skippedFiles.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : (
+                              <button
+                                type="button"
+                                className="whitespace-nowrap text-xs text-muted-foreground underline-offset-4 hover:underline"
+                                aria-expanded={skippedDetail === item.itemPath}
+                                title={t('adminSources.skippedToggleHint')}
+                                onClick={() =>
+                                  setSkippedDetail(skippedDetail === item.itemPath ? null : item.itemPath)
+                                }
+                              >
+                                {t('adminSources.skippedCount', { n: item.skippedFiles.length })}
+                              </button>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {item.problems.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : (
+                              <ul className="space-y-1 text-xs text-destructive">
+                                {item.problems.map((problem) => (
+                                  <li key={problem}>{problem}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                        {skippedDetail === item.itemPath ? (
+                          <TableRow data-testid="skipped-detail">
+                            <TableCell colSpan={6} className="bg-muted/40">
+                              <SkippedFilesDetail files={item.skippedFiles} t={t} />
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>

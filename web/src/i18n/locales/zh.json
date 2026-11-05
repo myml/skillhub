@@ -1487,7 +1487,10 @@
     "planLoadingHint": "首次同步需要先在服务端拉取仓库；仓库较大或目录较多时会慢一些，请稍等。",
     "planFailingTitle": "预计 {{n}} 个目录同步时会失败",
     "planFailingHint": "最后一列是每个目录的失败原因（重名、不是命名空间成员、文件数或体积超限、SKILL.md 无法解析等）。处理掉这些原因后再同步，失败目录会一直重试。",
-    "colPrecheck": "预检"
+    "colPrecheck": "预检",
+    "skippedCount": "跳过 {{n}} 个",
+    "skippedDetailTitle": "跳过的 {{n}} 个文件",
+    "skippedToggleHint": "点击查看跳过的文件列表"
   },
   "skillSource": {
     "title": "来源",

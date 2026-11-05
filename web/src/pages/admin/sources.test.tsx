@@ -55,6 +55,7 @@ import {
   toSourceInput,
   validateSourceFormState,
   RunNotes,
+  SkippedFilesDetail,
   splitNotes,
 } from './sources'
 
@@ -216,6 +217,28 @@ describe('AdminSourcesPage', () => {
     // The raw status enum must never reach the page: only its label key does.
     expect(html).toContain('adminSources.runStatusSuccess')
     expect(html).not.toContain('SUCCESS')
+  })
+})
+
+
+describe('SkippedFilesDetail', () => {
+  it('lists every skipped file with the reason the registry refused it', () => {
+    const html = renderToStaticMarkup(
+      <SkippedFilesDetail
+        files={[
+          { path: 'LICENSE', reason: 'file type is not accepted by the registry' },
+          { path: 'samples/big.mp4', reason: 'file exceeds 10485760 bytes' },
+        ]}
+        t={(key: string, options?: Record<string, unknown>) =>
+          key === 'adminSources.skippedDetailTitle' ? `skipped ${String(options?.n)}` : key
+        }
+      />,
+    )
+
+    expect(html).toContain('skipped 2')
+    expect(html).toContain('LICENSE')
+    expect(html).toContain('file type is not accepted by the registry')
+    expect(html).toContain('samples/big.mp4')
   })
 })
 

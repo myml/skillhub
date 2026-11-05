@@ -475,7 +475,7 @@ public class GitSyncAdminService {
         return new GitSourceResponse(
                 source.id(),
                 source.repoUrl(),
-                GitRepoUrls.webUrl(source.repoUrl()),
+                webUrlOrNull(source.repoUrl()),
                 source.repoPath(),
                 source.defaultRef(),
                 source.subpath(),
@@ -495,6 +495,20 @@ public class GitSyncAdminService {
                 source.lastSyncStatus(),
                 source.lastSyncMessage()
         );
+    }
+
+    /**
+     * Best-effort browsable URL for the source list.
+     *
+     * <p>A row whose URL predates validation (or was written by a script) must not
+     * take the whole list down: an unparsable address simply gets no link.
+     */
+    private static String webUrlOrNull(String repoUrl) {
+        try {
+            return GitRepoUrls.webUrl(repoUrl);
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     static GitSourceItemResponse toItemResponse(GitSourceItemRecord item) {
@@ -551,7 +565,8 @@ public class GitSyncAdminService {
                                 item.fileCount(),
                                 item.skippedFiles().stream()
                                         .map(skipped -> new GitImportPlanResponse.SkippedFile(
-                                                skipped.path(), skipped.reason()))
+                                                skipped.path(), localize(skipped.reasonCode(),
+                                                        skipped.reasonArgs())))
                                         .toList(),
                                 item.problems().stream().map(this::localize).toList()))
                         .toList()
@@ -565,8 +580,11 @@ public class GitSyncAdminService {
      * searchable instead of failing the dry-run.
      */
     private String localize(PlanProblem problem) {
-        Locale locale = LocaleContextHolder.getLocale();
-        return messageSource.getMessage(problem.code(), problem.args().toArray(), problem.code(), locale);
+        return localize(problem.code(), problem.args());
+    }
+
+    private String localize(String code, List<Object> args) {
+        return messageSource.getMessage(code, args.toArray(), code, LocaleContextHolder.getLocale());
     }
 
     private record ValidatedSource(String repoUrl,

@@ -285,6 +285,22 @@ class GitSyncAdminServiceTest {
         assertEquals(List.of("已发布同名技能：pdf-helper"), response.items().getFirst().problems());
     }
 
+
+    @Test
+    void listSurvivesASourceWhoseStoredUrlCannotBeParsed() {
+        // A row written before validation (or by a script) must not break the list.
+        GitSourceRecord broken = new GitSourceRecord(9L, "github.com/example/demo", "example/demo",
+                "main", "skills", "global", null, "docker-admin", 60, true, SkillVisibility.PUBLIC,
+                "docker-admin", NOW, NOW, null, null, null, null);
+        given(store.findAll()).willReturn(List.of(broken));
+        given(store.countImportedBySource()).willReturn(java.util.Map.of());
+
+        List<GitSourceResponse> sources = service.list("docker-admin", true);
+
+        assertEquals(1, sources.size());
+        assertNull(sources.getFirst().webUrl());
+    }
+
     @Test
     void planDelegatesToPlannerAndRecordsPlanningTime() {
         GitSourceRecord source = record(5L);
@@ -292,7 +308,7 @@ class GitSyncAdminServiceTest {
         given(planService.plan(source)).willReturn(new GitImportPlan(5L, "main", "c".repeat(40), "",
                 List.of(new GitImportPlanItem("skills/pdf", "PDF Helper", "tree-1",
                         GitImportPlanItem.ChangeType.ADDED, null, null, 3,
-                        List.of(new SkippedGitFile("LICENSE", "unsupported")), List.of())),
+                        List.of(SkippedGitFile.of("LICENSE", "gitsync.skip.fileType")), List.of())),
                 NOW));
 
         var response = service.plan(5L, "admin-1", true);

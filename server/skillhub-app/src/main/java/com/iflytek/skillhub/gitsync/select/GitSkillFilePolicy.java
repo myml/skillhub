@@ -36,18 +36,17 @@ public final class GitSkillFilePolicy {
                 continue;
             }
             String packagePath = GitSkillDiscovery.relativePath(itemPath, file.path());
-            String invalidPath = invalidPathReason(packagePath);
-            if (invalidPath != null) {
-                skipped.add(new SkippedGitFile(packagePath, invalidPath));
+            if (!validPath(packagePath)) {
+                skipped.add(SkippedGitFile.of(packagePath, "gitsync.skip.invalidPath"));
                 continue;
             }
             if (!SkillPackagePolicy.hasAllowedExtension(packagePath)) {
-                skipped.add(new SkippedGitFile(packagePath, "file type is not accepted by the registry"));
+                skipped.add(SkippedGitFile.of(packagePath, "gitsync.skip.fileType"));
                 continue;
             }
             if (file.size() > SkillPackagePolicy.MAX_SINGLE_FILE_SIZE) {
-                skipped.add(new SkippedGitFile(packagePath, "file exceeds "
-                        + SkillPackagePolicy.MAX_SINGLE_FILE_SIZE + " bytes"));
+                skipped.add(SkippedGitFile.of(packagePath, "gitsync.skip.tooLarge",
+                        SkillPackagePolicy.MAX_SINGLE_FILE_SIZE));
                 continue;
             }
             selected.add(new GitTreeFile(packagePath, file));
@@ -89,12 +88,12 @@ public final class GitSkillFilePolicy {
      * Paths that cannot be represented as a package entry are skipped; the
      * registry would reject the whole package for them.
      */
-    private static String invalidPathReason(String packagePath) {
+    private static boolean validPath(String packagePath) {
         try {
             SkillPackagePolicy.normalizeEntryPath(packagePath);
-            return null;
+            return true;
         } catch (IllegalArgumentException ex) {
-            return ex.getMessage();
+            return false;
         }
     }
 }

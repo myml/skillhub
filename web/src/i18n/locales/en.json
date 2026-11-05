@@ -1487,7 +1487,10 @@
     "planLoadingHint": "The first run clones the repository on the server; large repositories take longer.",
     "planFailingTitle": "{{n}} directory/directories will fail to sync",
     "planFailingHint": "The last column lists why each directory would fail (name conflict, publisher not a member, too many or too large files, unparseable SKILL.md). Fix them before syncing; failed directories are retried on every run.",
-    "colPrecheck": "Precheck"
+    "colPrecheck": "Precheck",
+    "skippedCount": "{{n}} skipped",
+    "skippedDetailTitle": "{{n}} skipped file(s)",
+    "skippedToggleHint": "Click to list the skipped files"
   },
   "skillSource": {
     "title": "Source",

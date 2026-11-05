@@ -55,8 +55,10 @@ class GitSkillFilePolicyTest {
                 selection.selected().stream().map(GitTreeFile::packagePath).toList());
         assertEquals(List.of("LICENSE", "uv.lock", "huge.md"),
                 selection.skipped().stream().map(SkippedGitFile::path).toList());
-        assertTrue(selection.skipped().getFirst().reason().contains("not accepted"));
-        assertTrue(selection.skipped().get(2).reason().contains("exceeds"));
+        assertEquals("gitsync.skip.fileType", selection.skipped().getFirst().reasonCode());
+        assertEquals("gitsync.skip.tooLarge", selection.skipped().get(2).reasonCode());
+        assertEquals(List.of(SkillPackagePolicy.MAX_SINGLE_FILE_SIZE),
+                selection.skipped().get(2).reasonArgs());
     }
 
     @Test
