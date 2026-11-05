@@ -246,8 +246,10 @@ class GitSyncPostgresIntegrationTest {
                 auditLogService, objectMapper, messages(),
                 Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id(), "admin-1", true);
 
-        assertEquals(1, plan.added());
+        // A directory the pre-check rejects is a predicted failure, not an addition.
+        assertEquals(0, plan.added());
         assertEquals(1, plan.failing());
+        assertThat(plan.items().getFirst().failing()).isTrue();
         assertEquals(1, plan.items().getFirst().problems().size());
         assertThat(plan.items().getFirst().problems().getFirst()).contains("postgres-toolkit");
 

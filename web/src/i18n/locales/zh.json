@@ -1493,7 +1493,9 @@
     "skippedToggleHint": "点击查看跳过的文件列表",
     "problemsCount": "{{n}} 项问题",
     "problemsDetailTitle": "预检发现 {{n}} 项问题，同步这个目录会失败",
-    "problemsToggleHint": "点击查看具体原因"
+    "problemsToggleHint": "点击查看具体原因",
+    "planFailed": "失败",
+    "problemsUnchangedHint": "内容没变，本次不会导入；等这个目录有改动时，这些原因会挡住导入"
   },
   "skillSource": {
     "title": "来源",

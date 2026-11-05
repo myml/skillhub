@@ -568,6 +568,7 @@ public class GitSyncAdminService {
                                                 skipped.path(), localize(skipped.reasonCode(),
                                                         skipped.reasonArgs())))
                                         .toList(),
+                                item.willFail(),
                                 item.problems().stream().map(this::localize).toList()))
                         .toList()
         );

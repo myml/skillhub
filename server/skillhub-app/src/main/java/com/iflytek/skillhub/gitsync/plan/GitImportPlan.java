@@ -14,8 +14,16 @@ public record GitImportPlan(Long sourceId,
                             List<GitImportPlanItem> items,
                             Instant plannedAt) {
 
+    /**
+     * Directories of one change type that a sync would actually carry out.
+     *
+     * <p>Predicted failures are excluded here and counted by {@link #failing()}, so
+     * the buckets plus the failures add up to the number of planned directories.
+     */
     public long count(GitImportPlanItem.ChangeType changeType) {
-        return items.stream().filter(item -> item.changeType() == changeType).count();
+        return items.stream()
+                .filter(item -> item.changeType() == changeType && !item.willFail())
+                .count();
     }
 
     /** Directories a sync would fail to import, according to the prechecks. */

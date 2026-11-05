@@ -1493,7 +1493,9 @@
     "skippedToggleHint": "Click to list the skipped files",
     "problemsCount": "{{n}} issue(s)",
     "problemsDetailTitle": "The pre-check found {{n}} issue(s); syncing this directory will fail",
-    "problemsToggleHint": "Click to see the reasons"
+    "problemsToggleHint": "Click to see the reasons",
+    "planFailed": "Failed",
+    "problemsUnchangedHint": "Content unchanged, so it is not imported this time; these issues will block the next change"
   },
   "skillSource": {
     "title": "Source",

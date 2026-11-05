@@ -527,6 +527,8 @@ export interface GitImportPlanItem {
   skippedFiles: GitSkippedFile[]
   /** Reasons a sync would fail to import this directory; empty when it will import. */
   problems: string[]
+  /** The pre-check expects this directory's import to fail. */
+  failing: boolean
 }
 
 export interface GitImportPlan {

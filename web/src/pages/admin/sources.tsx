@@ -252,6 +252,7 @@ function changeTypeClass(changeType: string) {
   if (changeType === 'ADDED') return 'text-emerald-600 border-emerald-500/40'
   if (changeType === 'CHANGED') return 'text-amber-600 border-amber-500/40'
   if (changeType === 'REMOVED') return 'text-rose-600 border-rose-500/40'
+  if (changeType === 'FAILED') return 'text-destructive border-destructive/50'
   return 'text-muted-foreground border-border/60'
 }
 
@@ -851,6 +852,7 @@ export function AdminSourcesPage() {
                   { key: 'changed', label: t('adminSources.planChanged'), value: plan.changed },
                   { key: 'unchanged', label: t('adminSources.planUnchanged'), value: plan.unchanged },
                   { key: 'removed', label: t('adminSources.planRemoved'), value: plan.removed },
+                  { key: 'failing', label: t('adminSources.planFailed'), value: plan.failing },
                   { key: 'total', label: t('adminSources.planTotal'), value: plan.items.length },
                 ].map((entry) => (
                   <div key={entry.key} className="rounded-xl border border-border/60 p-3">
@@ -896,9 +898,9 @@ export function AdminSourcesPage() {
                         <TableRow>
                           <TableCell>
                             <span
-                              className={`inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.changeType)}`}
+                              className={`inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-xs ${changeTypeClass(item.failing ? 'FAILED' : item.changeType)}`}
                             >
-                              {t(changeTypeKey(item.changeType))}
+                              {t(item.failing ? 'adminSources.planFailed' : changeTypeKey(item.changeType))}
                             </span>
                           </TableCell>
                           <TableCell className="font-mono text-xs">{item.itemPath || '/'}</TableCell>
@@ -925,9 +927,11 @@ export function AdminSourcesPage() {
                             ) : (
                               <button
                                 type="button"
-                                className="whitespace-nowrap text-xs font-medium text-destructive underline-offset-4 hover:underline"
+                                className={`whitespace-nowrap text-xs font-medium underline-offset-4 hover:underline ${
+                                  item.failing ? 'text-destructive' : 'text-muted-foreground'
+                                }`}
                                 aria-expanded={detail?.path === item.itemPath && detail.kind === 'problems'}
-                                title={t('adminSources.problemsToggleHint')}
+                                title={t(item.failing ? 'adminSources.problemsToggleHint' : 'adminSources.problemsUnchangedHint')}
                                 onClick={() => toggleDetail(item.itemPath, 'problems')}
                               >
                                 {t('adminSources.problemsCount', { n: item.problems.length })}

@@ -236,6 +236,27 @@ class GitSourcePlanServiceTest {
         assertEquals(1, plan.failing());
     }
 
+
+    @Test
+    void unchangedDirectoryWithAProblemIsNotCountedAsAPredictedFailure() {
+        givenTree(blob("skills/pdf/SKILL.md", "s1"));
+        String treeSha = GitSkillDiscovery.treeSha("skills/pdf", List.of(blob("skills/pdf/SKILL.md", "s1")));
+        given(store.findItems(7L)).willReturn(List.of(new GitSourceItemRecord(1L, 7L, "skills/pdf", "pdf",
+                treeSha, COMMIT, 42L, GitSourceItemRecord.STATE_IMPORTED, NOW, NOW)));
+        given(precheck.check(any(), eq("pdf-helper")))
+                .willReturn(List.of(PlanProblem.of("error.skill.publish.nameConflict", "pdf-helper")));
+
+        GitImportPlan plan = service.plan(source(""));
+
+        // The executor never imports an unchanged directory, so its problem
+        // cannot fail the run: it is reported, but stays out of the failure count.
+        assertEquals(GitImportPlanItem.ChangeType.UNCHANGED, item(plan, "skills/pdf").changeType());
+        assertEquals(List.of("error.skill.publish.nameConflict"),
+                item(plan, "skills/pdf").problems().stream().map(PlanProblem::code).toList());
+        assertEquals(0, plan.failing());
+        assertEquals(1, plan.count(GitImportPlanItem.ChangeType.UNCHANGED));
+    }
+
     @Test
     void planPredictsDirectoriesThatExceedTheFileCountLimit() {
         List<GitTreeEntry> files = new ArrayList<>();

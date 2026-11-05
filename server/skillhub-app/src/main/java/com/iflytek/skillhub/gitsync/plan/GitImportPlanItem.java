@@ -42,11 +42,13 @@ public record GitImportPlanItem(String itemPath,
     /**
      * Whether a sync would fail to import this directory.
      *
-     * <p>An unchanged directory is not re-imported, so its problems only surface
-     * when the content changes; it is still reported, because the dry-run is the
-     * place to notice them.
+     * <p>Only {@link ChangeType#ADDED} and {@link ChangeType#CHANGED} directories
+     * are imported at all: the executor skips {@code UNCHANGED} ones, so a problem
+     * recorded there cannot fail the run. Those are still reported — the dry-run is
+     * where you want to see them — but they are not counted as predicted failures.
      */
     public boolean willFail() {
-        return !problems.isEmpty() && changeType != ChangeType.REMOVED;
+        return !problems.isEmpty()
+                && (changeType == ChangeType.ADDED || changeType == ChangeType.CHANGED);
     }
 }

@@ -29,6 +29,7 @@ public record GitImportPlanResponse(Long sourceId,
                        Long skillId,
                        int fileCount,
                        List<SkippedFile> skippedFiles,
+                       boolean failing,
                        List<String> problems) {
     }
 
