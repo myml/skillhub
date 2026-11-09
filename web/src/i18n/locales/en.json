@@ -1463,7 +1463,7 @@
     "formRepoUrlHint": "Use an https:// or git@host:path repository URL; the host must be allowed on the server.",
     "formDefaultRef": "Branch or tag",
     "formDefaultRefHint": "Empty means the repository's default branch (the remote's HEAD); fill it in only to pin another branch, a tag or a commit.",
-    "defaultRefAuto": "default branch",
+    "defaultRefAuto": "follows default",
     "formSubpath": "Subdirectory",
     "formSubpathHint": "Every subdirectory containing a SKILL.md is one skill; leave it empty to scan the whole repository.",
     "formNamespace": "Target namespace",

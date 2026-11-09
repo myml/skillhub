@@ -1463,7 +1463,7 @@
     "formRepoUrlHint": "支持 https:// 或 git@host:path 形式的仓库地址；主机需在服务端允许列表内。",
     "formDefaultRef": "分支或标签",
     "formDefaultRefHint": "留空表示跟随仓库的默认分支（远端 HEAD）；只有要固定到其它分支、标签或提交时才填。",
-    "defaultRefAuto": "默认分支",
+    "defaultRefAuto": "跟随默认分支",
     "formSubpath": "子目录",
     "formSubpathHint": "该目录下每个含 SKILL.md 的子目录是一个 skill；留空表示扫描整个仓库。",
     "formNamespace": "目标命名空间",
