@@ -1,6 +1,7 @@
 package com.iflytek.skillhub.filter;
 
 import ch.qos.logback.classic.Level;
+import com.iflytek.skillhub.security.SensitiveLogSanitizer;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -34,7 +35,7 @@ class RequestLoggingFilterTest {
     @Test
     void doFilterInternal_truncatesLongRequestBodyAndOmitsResponseBody()
             throws ServletException, IOException {
-        RequestLoggingFilter filter = new RequestLoggingFilter();
+        RequestLoggingFilter filter = new RequestLoggingFilter(new SensitiveLogSanitizer());
         String longBody = "x".repeat(5_000);
         attachAppender();
 
@@ -65,7 +66,7 @@ class RequestLoggingFilterTest {
     @Test
     void doFilterInternal_skipsActuatorEndpoints()
             throws ServletException, IOException {
-        RequestLoggingFilter filter = new RequestLoggingFilter();
+        RequestLoggingFilter filter = new RequestLoggingFilter(new SensitiveLogSanitizer());
         attachAppender();
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/actuator/health");
@@ -81,7 +82,7 @@ class RequestLoggingFilterTest {
     @Test
     void doFilterInternal_logsCoreSummaryFields()
             throws ServletException, IOException {
-        RequestLoggingFilter filter = new RequestLoggingFilter();
+        RequestLoggingFilter filter = new RequestLoggingFilter(new SensitiveLogSanitizer());
         attachAppender();
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/skills");
@@ -99,6 +100,31 @@ class RequestLoggingFilterTest {
             assertThat(message).contains("ms");
         });
         assertThat(loggedMessages()).noneMatch(message -> message.contains("Headers: {"));
+    }
+
+    @Test
+    void doFilterInternal_masksCredentialsInTheLoggedBody()
+            throws ServletException, IOException {
+        RequestLoggingFilter filter = new RequestLoggingFilter(new SensitiveLogSanitizer());
+        attachAppender();
+
+        String body = "{\"repoUrl\":\"https://github.com/owner/repo\",\"credential\":\"git:glpat-secret-token\"}";
+        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/admin/git-sources");
+        request.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        request.setContentType("application/json");
+        request.setContent(body.getBytes(StandardCharsets.UTF_8));
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain filterChain = (req, res) -> req.getReader().lines().count();
+
+        filter.doFilter(request, response, filterChain);
+
+        assertThat(loggedMessages()).anySatisfy(message -> {
+            assertThat(message).contains("Body: ");
+            assertThat(message).contains("https://github.com/owner/repo");
+            assertThat(message).contains("\"credential\":\"***\"");
+            assertThat(message).doesNotContain("glpat-secret-token");
+        });
     }
 
     private void attachAppender() {

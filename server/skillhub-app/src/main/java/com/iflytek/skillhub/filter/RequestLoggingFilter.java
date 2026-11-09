@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.iflytek.skillhub.security.SensitiveLogSanitizer;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,12 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     private static final Set<String> SKIP_PREFIXES = Set.of(
             "/actuator", "/favicon.ico", "/assets/"
     );
+
+    private final SensitiveLogSanitizer sensitiveLogSanitizer;
+
+    public RequestLoggingFilter(SensitiveLogSanitizer sensitiveLogSanitizer) {
+        this.sensitiveLogSanitizer = sensitiveLogSanitizer;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -77,7 +84,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
         String requestBody = getRequestBody(request);
         if (requestBody != null && !requestBody.isBlank()) {
-            sb.append(" | Body: ").append(requestBody);
+            // Mask secrets before truncating: a token cut in half would no longer look
+            // like a token, and the remainder would survive in the log.
+            sb.append(" | Body: ").append(truncate(
+                    sensitiveLogSanitizer.sanitizeBody(requestBody), MAX_LOG_BODY_LENGTH));
         }
 
         log.info(sb.toString());
@@ -96,7 +106,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         byte[] buf = request.getContentAsByteArray();
         if (buf.length > 0) {
             try {
-                return truncate(new String(buf, request.getCharacterEncoding()), MAX_LOG_BODY_LENGTH);
+                return new String(buf, request.getCharacterEncoding());
             } catch (UnsupportedEncodingException e) {
                 return "[unknown encoding]";
             }
