@@ -1335,6 +1335,7 @@
     "forbidden": "You don't have permission for this action",
     "notFound": "The requested resource was not found",
     "serverError": "Server error, please try again later",
+    "upstreamError": "Upstream service error, please try again later",
     "networkError": "Network connection failed, please check your network",
     "unknown": "Operation failed"
   },

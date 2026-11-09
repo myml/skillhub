@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
+import com.iflytek.skillhub.gitsync.git.GitProviderException;
 import com.iflytek.skillhub.gitsync.git.GitRefNotFoundException;
 import com.iflytek.skillhub.metrics.SkillHubMetrics;
 import com.iflytek.skillhub.security.SensitiveLogSanitizer;
@@ -97,5 +98,20 @@ class GlobalExceptionHandlerTest {
         ApiResponse<?> body = (ApiResponse<?>) response.getBody();
         assertThat(body).isNotNull();
         assertThat(body.details()).doesNotContainKey("suggestion");
+    }
+
+    @Test
+    void handleGitProviderException_shouldAnswerBadGatewayInsteadOfUnhandled() {
+        when(request.getMethod()).thenReturn("POST");
+        when(sensitiveLogSanitizer.sanitizeRequestTarget(request)).thenReturn("/api/v1/admin/git-sources/11/plan");
+
+        ResponseEntity<?> response = handler.handleGitProviderException(
+                new GitProviderException("git fetch --prune failed: fatal: couldn't find remote ref master"), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+        ApiResponse<?> body = (ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.code()).isEqualTo(502);
+        assertThat(body.details()).isNull();
     }
 }

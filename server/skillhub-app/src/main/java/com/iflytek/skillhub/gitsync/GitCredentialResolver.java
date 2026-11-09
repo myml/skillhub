@@ -22,15 +22,21 @@ import org.springframework.util.StringUtils;
 public class GitCredentialResolver {
 
     public GitCredential resolve(GitSourceRecord source) {
-        String value = source.credential();
-        if (!StringUtils.hasText(value)) {
+        return resolve(source.repoUrl(), source.credential());
+    }
+
+    /**
+     * Credential for a repository that has not been saved yet, so the form can be
+     * validated against the real server before the source exists.
+     */
+    public GitCredential resolve(String repoUrl, String credentialValue) {
+        if (!StringUtils.hasText(credentialValue)) {
             return GitCredential.anonymous();
         }
-        String trimmed = value.trim();
-        if (isSshRemote(source.repoUrl())) {
-            return GitCredential.sshKey(value);
+        if (isSshRemote(repoUrl)) {
+            return GitCredential.sshKey(credentialValue);
         }
-        return parseToken(trimmed);
+        return parseToken(credentialValue.trim());
     }
 
     /** Package private for tests. */

@@ -20,6 +20,7 @@ import {
 } from '@/features/admin/use-git-sources'
 import { SiteFavicon } from '@/shared/components/site-favicon'
 import { useMyNamespaces } from '@/shared/hooks/use-namespace-queries'
+import { apiErrorDetail } from '@/shared/lib/api-error'
 import { formatLocalDateTime } from '@/shared/lib/date-time'
 import { toast } from '@/shared/lib/toast'
 import { Button } from '@/shared/ui/button'
@@ -454,7 +455,7 @@ export function AdminSourcesPage() {
       }
       setDialogOpen(false)
     } catch (error) {
-      toast.error(t('adminSources.saveFailedTitle'), error instanceof Error ? error.message : undefined)
+      toast.error(t('adminSources.saveFailedTitle'), apiErrorDetail(error))
     }
   }
 
@@ -466,7 +467,7 @@ export function AdminSourcesPage() {
       await deleteMutation.mutateAsync(pendingDelete.id)
       toast.success(t('adminSources.deletedTitle'), t('adminSources.deletedDescription'))
     } catch (error) {
-      toast.error(t('adminSources.deleteFailedTitle'), error instanceof Error ? error.message : undefined)
+      toast.error(t('adminSources.deleteFailedTitle'), apiErrorDetail(error))
     } finally {
       setPendingDelete(null)
     }
@@ -481,7 +482,7 @@ export function AdminSourcesPage() {
       setPlan(result)
     } catch (error) {
       setPlanSource(null)
-      toast.error(t('adminSources.planFailedTitle'), error instanceof Error ? error.message : undefined)
+      toast.error(t('adminSources.planFailedTitle'), apiErrorDetail(error))
     }
   }
 
@@ -504,7 +505,7 @@ export function AdminSourcesPage() {
         toast.warning(t(titleKey), run.message ?? description)
       }
     } catch (error) {
-      toast.error(t('adminSources.syncFailedTitle'), error instanceof Error ? error.message : undefined)
+      toast.error(t('adminSources.syncFailedTitle'), apiErrorDetail(error))
     }
   }
 

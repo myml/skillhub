@@ -28,7 +28,9 @@ import com.iflytek.skillhub.domain.shared.exception.DomainNotFoundException;
 import com.iflytek.skillhub.gitsync.dto.GitSourceCreateRequest;
 import com.iflytek.skillhub.gitsync.dto.GitSourceResponse;
 import com.iflytek.skillhub.domain.skill.SkillVisibility;
+import com.iflytek.skillhub.gitsync.git.GitCredential;
 import com.iflytek.skillhub.gitsync.git.GitMirrorStore;
+import com.iflytek.skillhub.gitsync.git.GitRefInspector;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlan;
 import com.iflytek.skillhub.gitsync.plan.PlanProblem;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlanItem;
@@ -73,6 +75,9 @@ class GitSyncAdminServiceTest {
     private GitMirrorStore mirrors;
 
     @Mock
+    private GitRefInspector refInspector;
+
+    @Mock
     private NamespaceMemberRepository namespaceMemberRepository;
 
     @Mock
@@ -96,6 +101,7 @@ class GitSyncAdminServiceTest {
     @BeforeEach
     void setUp() {
         service = new GitSyncAdminService(store, namespaceRepository, planService, executor, mirrors,
+                refInspector, new GitCredentialResolver(),
                 allowAllHosts(), new GitSyncProperties(), namespaceMemberRepository, auditLogService,
                 new ObjectMapper(), messageSource,
                 Clock.fixed(NOW, ZoneOffset.UTC));
@@ -409,6 +415,49 @@ class GitSyncAdminServiceTest {
     }
 
     @Test
+    void preflightCreateVerifiesTheRefBeforeStoringAnything() {
+        service.preflightCreate(new GitSourceCreateRequest("https://github.com/owner/repo", "release", "",
+                "global", "", null, null));
+
+        then(refInspector).should().requireRefExists("https://github.com/owner/repo", "release",
+                GitCredential.anonymous());
+        verify(store, never()).insert(any());
+    }
+
+    @Test
+    void preflightCreateChecksWithTheCredentialFromTheForm() {
+        service.preflightCreate(new GitSourceCreateRequest("https://github.com/owner/repo", "release", "",
+                "global", "release-bot:glpat-secret", null, null));
+
+        then(refInspector).should().requireRefExists("https://github.com/owner/repo", "release",
+                GitCredential.token("release-bot", "glpat-secret"));
+    }
+
+    @Test
+    void preflightUpdateSkipsTheRemoteWhenTheTargetIsUnchanged() {
+        given(store.findById(5L)).willReturn(Optional.of(record(5L)));
+
+        service.preflightUpdate(5L,
+                new GitSourceCreateRequest("https://github.com/owner/repo", "main", "", "global", "", 30, null),
+                "admin-1", true);
+
+        then(refInspector).shouldHaveNoInteractions();
+        verify(store, never()).update(any());
+    }
+
+    @Test
+    void preflightUpdateChecksANewRefWithTheStoredCredential() {
+        given(store.findById(5L)).willReturn(Optional.of(record(5L, "release-bot:glpat-secret")));
+
+        service.preflightUpdate(5L,
+                new GitSourceCreateRequest("https://github.com/owner/repo", "release", "", "global", "", null, null),
+                "admin-1", true);
+
+        then(refInspector).should().requireRefExists("https://github.com/owner/repo", "release",
+                GitCredential.token("release-bot", "glpat-secret"));
+    }
+
+    @Test
     void listReportsImportedSkillCountPerSource() {
         given(store.findAll()).willReturn(List.of(record(5L), record(6L)));
         given(store.countImportedBySource()).willReturn(Map.of(5L, 18, 6L, 2));
@@ -620,7 +669,8 @@ class GitSyncAdminServiceTest {
         GitSyncProperties limited = new GitSyncProperties();
         limited.getLimits().setMaxSourcesPerUser(1);
         GitSyncAdminService quotaService = new GitSyncAdminService(store, namespaceRepository, planService,
-                executor, mirrors, allowAllHosts(), limited, namespaceMemberRepository, auditLogService,
+                executor, mirrors, refInspector, new GitCredentialResolver(), allowAllHosts(), limited,
+                namespaceMemberRepository, auditLogService,
                 new ObjectMapper(), messageSource, Clock.fixed(NOW, ZoneOffset.UTC));
         given(store.countByCreatedBy("admin-1")).willReturn(1);
 

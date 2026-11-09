@@ -176,6 +176,8 @@ type ApiEnvelope<T> = {
   data: T
   timestamp: string
   requestId: string
+  /** Present on errors that carry machine-readable context, e.g. the branches a repository has. */
+  details?: Record<string, unknown>
 }
 
 type RequestWithTimeout = RequestInit & {
@@ -240,7 +242,8 @@ export async function fetchJson<T>(input: RequestInfo | URL, init?: RequestWithT
   }
 
   if (!response.ok || json.code !== 0) {
-    throw new ApiError(json.msg || `HTTP ${response.status}`, response.status, json.msg, json.msg)
+    throw new ApiError(json.msg || `HTTP ${response.status}`, response.status, json.msg, json.msg,
+      json.requestId, json.details)
   }
 
   return json.data
@@ -757,9 +760,11 @@ export const tokenApi = {
       return
     }
 
-    const envelope = (error && isApiEnvelope<void>(error) ? error : null) as { msg?: string } | null
+    const envelope = (error && isApiEnvelope<void>(error) ? error : null) as
+      { msg?: string, requestId?: string, details?: Record<string, unknown> } | null
     if (!response.ok || error) {
-      throw new ApiError(envelope?.msg || `HTTP ${response.status}`, response.status, envelope?.msg, envelope?.msg)
+      throw new ApiError(envelope?.msg || `HTTP ${response.status}`, response.status, envelope?.msg, envelope?.msg,
+        envelope?.requestId, envelope?.details)
     }
   },
 }

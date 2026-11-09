@@ -17,12 +17,30 @@ export class ApiError extends Error {
     public status: number,
     public serverMessage?: string,
     public serverMessageKey?: string,
+    /** Correlation id the server logged for this request. */
+    public requestId?: string,
+    /** Machine-readable context the server attached, e.g. the branches a repository has. */
+    public details?: Record<string, unknown>,
   ) {
     super(resolveLocalizedMessage(message) || message)
     this.name = 'ApiError'
     this.serverMessage = resolveLocalizedMessage(serverMessage) || serverMessage
     this.serverMessageKey = serverMessageKey
+    this.requestId = requestId
+    this.details = details
   }
+}
+
+/**
+ * Toast detail for a failed call: the server's own explanation, followed by the
+ * request id the server logged, so the user can quote it when asking for help.
+ */
+export function apiErrorDetail(error: unknown): string | undefined {
+  if (!(error instanceof Error)) {
+    return undefined
+  }
+  const requestId = error instanceof ApiError ? error.requestId : undefined
+  return requestId ? `${error.message} (requestId: ${requestId})` : error.message
 }
 
 function isAccountDisabledError(error: ApiError): boolean {
@@ -77,8 +95,17 @@ export function handleApiError(error: unknown): void {
     return
   }
 
+  if (status === 502 || status === 504) {
+    // The git server (or the network in between) failed, not this application:
+    // blaming "the server" would send the user looking in the wrong place.
+    toast.error(i18n.t('apiError.upstreamError'), apiErrorDetail(error))
+    return
+  }
+
   if (status >= 500) {
-    toast.error(i18n.t('apiError.serverError'))
+    // Keep the server's explanation (and its request id) in the description: a
+    // generic title alone leaves nothing to report or to search the log for.
+    toast.error(i18n.t('apiError.serverError'), apiErrorDetail(error))
     return
   }
 

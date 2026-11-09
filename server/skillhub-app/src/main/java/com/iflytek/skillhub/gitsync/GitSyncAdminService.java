@@ -16,6 +16,7 @@ import com.iflytek.skillhub.gitsync.dto.GitSourceItemResponse;
 import com.iflytek.skillhub.gitsync.dto.GitSourceResponse;
 import com.iflytek.skillhub.gitsync.dto.GitSyncRunResponse;
 import com.iflytek.skillhub.gitsync.git.GitMirrorStore;
+import com.iflytek.skillhub.gitsync.git.GitRefInspector;
 import com.iflytek.skillhub.gitsync.git.GitProviderException;
 import com.iflytek.skillhub.gitsync.git.GitRepoUrls;
 import com.iflytek.skillhub.gitsync.plan.GitImportPlan;
@@ -61,6 +62,8 @@ public class GitSyncAdminService {
     private final GitSourcePlanService planService;
     private final GitSyncExecutor executor;
     private final GitMirrorStore mirrors;
+    private final GitRefInspector refInspector;
+    private final GitCredentialResolver credentialResolver;
     private final GitSyncUrlPolicy urlPolicy;
     private final GitSyncProperties properties;
     private final NamespaceMemberRepository namespaceMemberRepository;
@@ -74,6 +77,8 @@ public class GitSyncAdminService {
                                GitSourcePlanService planService,
                                GitSyncExecutor executor,
                                GitMirrorStore mirrors,
+                               GitRefInspector refInspector,
+                               GitCredentialResolver credentialResolver,
                                GitSyncUrlPolicy urlPolicy,
                                GitSyncProperties properties,
                                NamespaceMemberRepository namespaceMemberRepository,
@@ -86,6 +91,8 @@ public class GitSyncAdminService {
         this.planService = planService;
         this.executor = executor;
         this.mirrors = mirrors;
+        this.refInspector = refInspector;
+        this.credentialResolver = credentialResolver;
         this.urlPolicy = urlPolicy;
         this.properties = properties;
         this.namespaceMemberRepository = namespaceMemberRepository;
@@ -93,6 +100,44 @@ public class GitSyncAdminService {
         this.objectMapper = objectMapper;
         this.messageSource = messageSource;
         this.clock = clock;
+    }
+
+    /**
+     * Verifies the repository and the ref described by the form before the source
+     * is created.
+     *
+     * <p>Deliberately not {@code @Transactional}: this talks to the remote, and a
+     * slow server must not hold a database connection. The checks that need the
+     * database run again inside {@link #create}, which is the only writer.
+     */
+    public void preflightCreate(GitSourceCreateRequest request) {
+        ValidatedSource validated = validate(request);
+        refInspector.requireRefExists(validated.repoUrl(), validated.defaultRef(),
+                credentialResolver.resolve(validated.repoUrl(), validated.credential()));
+    }
+
+    /**
+     * Same check for an edit, using the stored credential when the form left the
+     * field empty exactly like {@link #update} does.
+     */
+    public void preflightUpdate(Long id, GitSourceCreateRequest request, String actorId, boolean canManageAll) {
+        GitSourceRecord existing = requireAccessibleSource(id, actorId, canManageAll);
+        ValidatedSource validated = validate(request);
+        if (unchangedTarget(existing, validated)) {
+            // Changing the interval, namespace or subdirectory cannot invalidate a ref
+            // that already worked, and skipping the round trip keeps an edit possible
+            // while the repository is temporarily offline.
+            return;
+        }
+        String credential = validated.credentialProvided() ? validated.credential() : existing.credential();
+        refInspector.requireRefExists(validated.repoUrl(), validated.defaultRef(),
+                credentialResolver.resolve(validated.repoUrl(), credential));
+    }
+
+    private static boolean unchangedTarget(GitSourceRecord existing, ValidatedSource validated) {
+        return existing.repoUrl().equals(validated.repoUrl())
+                && existing.defaultRef().equals(validated.defaultRef())
+                && !validated.credentialProvided();
     }
 
     @Transactional

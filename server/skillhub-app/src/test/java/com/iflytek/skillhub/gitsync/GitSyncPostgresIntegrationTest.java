@@ -31,6 +31,7 @@ import com.iflytek.skillhub.gitsync.git.GitRepositoryRef;
 import com.iflytek.skillhub.gitsync.git.GitCliRepositoryFetcher;
 import com.iflytek.skillhub.gitsync.git.GitCommandRunner;
 import com.iflytek.skillhub.gitsync.git.GitMirrorStore;
+import com.iflytek.skillhub.gitsync.git.GitRefInspector;
 import com.iflytek.skillhub.gitsync.git.GitRepositoryFetcher;
 import com.iflytek.skillhub.gitsync.git.GitTreeEntry;
 import com.iflytek.skillhub.gitsync.store.GitSourceItemRecord;
@@ -242,7 +243,8 @@ class GitSyncPostgresIntegrationTest {
                 metadataParser, urlPolicy(), precheck(), Clock.fixed(NOW, ZoneOffset.UTC));
 
         GitImportPlanResponse plan = new GitSyncAdminService(store, namespaceRepository, planService,
-                executor, mirrorStore(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
+                executor, mirrorStore(), new GitRefInspector(mirrorStore(), new GitSyncProperties()),
+                new GitCredentialResolver(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
                 auditLogService, objectMapper, messages(),
                 Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id(), "admin-1", true);
 
@@ -303,7 +305,8 @@ class GitSyncPostgresIntegrationTest {
                 new GitCredentialResolver(),
                 metadataParser, urlPolicy(), precheck(), Clock.fixed(NOW, ZoneOffset.UTC));
         GitImportPlanResponse plan = new GitSyncAdminService(store, namespaceRepository, planService,
-                executor, mirrorStore(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
+                executor, mirrorStore(), new GitRefInspector(mirrorStore(), new GitSyncProperties()),
+                new GitCredentialResolver(), urlPolicy(), new GitSyncProperties(), namespaceMemberRepository,
                 auditLogService, objectMapper, messages(),
                 Clock.fixed(NOW, ZoneOffset.UTC)).plan(source.id(), "admin-1", true);
         assertEquals(1, plan.added());

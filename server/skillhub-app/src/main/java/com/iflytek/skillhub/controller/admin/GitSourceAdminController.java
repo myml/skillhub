@@ -65,6 +65,9 @@ public class GitSourceAdminController extends BaseApiController {
     public ApiResponse<GitSourceResponse> createSource(@Valid @RequestBody GitSourceCreateRequest request,
                                                        @AuthenticationPrincipal PlatformPrincipal principal,
                                                        HttpServletRequest httpRequest) {
+        // Fail on the form, not on the next scheduled sync: the branch is verified
+        // against the real repository before anything is stored.
+        gitSyncAdminService.preflightCreate(request);
         return ok("response.success.created",
                 gitSyncAdminService.create(request, principal.userId(), AuditRequestContext.from(httpRequest)));
     }
@@ -74,6 +77,7 @@ public class GitSourceAdminController extends BaseApiController {
                                                        @Valid @RequestBody GitSourceCreateRequest request,
                                                        @AuthenticationPrincipal PlatformPrincipal principal,
                                                        HttpServletRequest httpRequest) {
+        gitSyncAdminService.preflightUpdate(id, request, principal.userId(), canManageAllSources(principal));
         return ok("response.success.updated",
                 gitSyncAdminService.update(id, request, principal.userId(), canManageAllSources(principal),
                         AuditRequestContext.from(httpRequest)));

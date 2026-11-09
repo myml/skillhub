@@ -6,6 +6,7 @@ import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
 import com.iflytek.skillhub.domain.shared.exception.LocalizedDomainException;
 import com.iflytek.skillhub.domain.shared.exception.LocalizedMessage;
+import com.iflytek.skillhub.gitsync.git.GitProviderException;
 import com.iflytek.skillhub.gitsync.git.GitRefNotFoundException;
 import com.iflytek.skillhub.metrics.SkillHubMetrics;
 import com.iflytek.skillhub.security.SensitiveLogSanitizer;
@@ -126,6 +127,31 @@ public class GlobalExceptionHandler {
         logHandledException(HttpStatus.BAD_REQUEST, ex.messageCode(), request);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 apiResponseFactory.errorWithDetails(400, ex.messageCode(), ex.details(), ex.messageArgs()));
+    }
+
+    /**
+     * git itself reported a failure we did not classify: the remote is unreachable,
+     * the network is failing, or the runtime has no git binary.
+     *
+     * <p>That is a gateway problem rather than "unhandled": answer 502 with a
+     * correlation id, and keep the stack trace out of the error log so a real bug in
+     * our code still stands out. The git output goes to the debug log only, because
+     * stderr can echo a remote URL that carries a credential.
+     */
+    @ExceptionHandler(GitProviderException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGitProviderException(GitProviderException ex,
+                                                                        HttpServletRequest request) {
+        logger.warn(
+                "Git upstream failure [requestId={}, method={}, path={}, userId={}]: {}",
+                MDC.get("requestId"),
+                request.getMethod(),
+                sensitiveLogSanitizer.sanitizeRequestTarget(request),
+                resolveUserId(request),
+                ex.getMessage()
+        );
+        logger.debug("Git upstream failure detail", ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+                apiResponseFactory.error(502, "error.gitSource.upstream"));
     }
 
     @ExceptionHandler(AsyncRequestTimeoutException.class)

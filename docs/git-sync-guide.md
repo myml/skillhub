@@ -309,11 +309,43 @@ repo/
 | `无法通过审核：该命名空间下已存在名为"x"的已发布技能` | 同名 skill 已属于另一个归属人 | 改名，或先处理已存在的同名 skill |
 | `分支或标签“x”在仓库中不存在。仓库现有分支：…` | 填的分支/tag 远端没有（常见：想当然填了 `master`，而仓库默认分支叫 `main` 或别的） | 按提示列出的分支改；不确定就留空，跟随仓库默认分支 |
 | `分支或标签“x”在仓库中不存在。你是不是想用“main”？仓库现有分支：…` | 同上，且有一个分支名与之很接近（拼写错误） | 点「保存」前先按猜测的分支名改；提示里的 `details.availableBranches` 是同一份清单，供脚本/前端取用 |
+| `访问 git 仓库失败（网络或上游异常）…` | git 自身失败：远端不可达、网络超时、SSH/HTTPS 被中间层拒绝、服务端没装 git 等 | 先确认地址和凭据（§5）；把响应里的 `requestId` 拿去日志里搜，能看到 git 的真实 stderr。这是 502，不是你的配置写错 |
 | `仓库没有可同步的分支…` | 仓库是空的，或分支还没推送到远端 | 推送分支后重试；确认地址指向的仓库有内容 |
 | `fatal: couldn't find remote ref x` | 旧版本遇到不存在的 ref 时直接把 git 报错抛了出来 | 升级后同一问题会提示「分支或标签不存在」并列出可用分支；临时处置同上 |
 | `Authentication failed` / `could not read Username` | HTTPS 凭据错或没填 | 检查 `用户名:令牌`，确认令牌有读权限、未过期 |
 | `Host key verification failed` | SSH 主机密钥变了 | 删除 `<work-dir>/ssh/known_hosts` 后重试 |
 | `Permission denied (publickey)` | 私钥不对，或没登记为部署密钥 | 重新粘贴私钥，并在仓库端确认部署密钥已启用 |
+
+### 8.4 错误响应的约定
+
+Git 源相关接口的错误响应统一成这几档，前端只需要按状态码分流：
+
+| 状态码 | 什么时候 | 典型错误码 |
+| --- | --- | --- |
+| 400 | 配置写错，管理员自己能改（分支不存在、间隔越界、地址不在白名单、重复注册…） | `error.gitSource.refNotFound` / `error.gitSource.refNotFoundWithSuggestion` / `error.gitSource.emptyRepository` |
+| 401 / 403 | 身份或权限不够 | — |
+| 404 | 源或命名空间不存在 | `error.gitSource.notFound` |
+| 502 | git 自身失败：远端不可达、网络、凭据被拒等 | `error.gitSource.upstream` |
+| 500 | 只有真正的程序缺陷才会落到这里；看到 500 就是 bug，请带着 `requestId` 报给我们 | `error.internal` |
+
+错误响应体在通用信封上多两个可用字段：
+
+```json
+{
+  "code": 400,
+  "msg": "分支或标签“master”在仓库中不存在。你是不是想用“main”？仓库现有分支：develop, main。",
+  "data": null,
+  "timestamp": "2026-11-09T03:20:00Z",
+  "requestId": "8f0c1d2e-…",
+  "details": {
+    "ref": "master",
+    "suggestion": "main",
+    "availableBranches": ["develop", "main"]
+  }
+}
+```
+
+`details` 只在有结构化信息时出现（其它接口的响应形状不变），`requestId` 每次都带，日志里可以按它检索到同一次请求。
 
 ---
 

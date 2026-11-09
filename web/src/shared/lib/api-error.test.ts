@@ -22,6 +22,35 @@ describe('ApiError', () => {
 
     expect(error.serverMessageKey).toBe('error.server.key')
   })
+
+  it('keeps the request id and structured details the server attached', async () => {
+    const { ApiError } = await import('./api-error')
+
+    const error = new ApiError('error.gitSource.refNotFound', 400, 'Branch does not exist', undefined,
+      'req-42', { ref: 'master', availableBranches: ['develop', 'main'] })
+
+    expect(error.requestId).toBe('req-42')
+    expect(error.details).toEqual({ ref: 'master', availableBranches: ['develop', 'main'] })
+  })
+})
+
+describe('apiErrorDetail', () => {
+  it('appends the request id so a failure can be quoted to support', async () => {
+    const { ApiError, apiErrorDetail } = await import('./api-error')
+
+    const detail = apiErrorDetail(
+      new ApiError('Boom', 502, 'Boom', undefined, 'req-123'),
+    )
+
+    expect(detail).toBe('Boom (requestId: req-123)')
+  })
+
+  it('keeps the plain message when the server sent no request id', async () => {
+    const { ApiError, apiErrorDetail } = await import('./api-error')
+
+    expect(apiErrorDetail(new ApiError('Boom', 400))).toBe('Boom')
+    expect(apiErrorDetail(undefined)).toBeUndefined()
+  })
 })
 
 describe('handleApiError', () => {
@@ -71,5 +100,31 @@ describe('handleApiError', () => {
     handleApiError(new ApiError('error.request.timeout', 0))
 
     expect(errorSpy).toHaveBeenLastCalledWith('网络连接失败，请检查网络')
+  })
+
+  it('names the upstream as the culprit and keeps the request id for git faults', async () => {
+    const { ApiError, handleApiError } = await import('./api-error')
+
+    handleApiError(new ApiError('The git server could not complete the request', 502,
+      'The git server could not complete the request', undefined, 'req-9'))
+
+    expect(errorSpy).toHaveBeenLastCalledWith(i18n.t('apiError.upstreamError'),
+      'The git server could not complete the request (requestId: req-9)')
+  })
+
+  it('shows the upstream title when an upstream fault carries no message', async () => {
+    const { ApiError, handleApiError } = await import('./api-error')
+
+    handleApiError(new ApiError('HTTP 502', 502))
+
+    expect(errorSpy).toHaveBeenLastCalledWith(i18n.t('apiError.upstreamError'), 'HTTP 502')
+  })
+
+  it('still calls a plain application fault a server error', async () => {
+    const { ApiError, handleApiError } = await import('./api-error')
+
+    handleApiError(new ApiError('HTTP 500', 500))
+
+    expect(errorSpy).toHaveBeenLastCalledWith(i18n.t('apiError.serverError'), 'HTTP 500')
   })
 })
