@@ -51,6 +51,13 @@ public class GitMirrorStore {
     /** How many branch names an unknown-ref error lists before truncating. */
     private static final int MAX_REPORTED_BRANCHES = 8;
 
+    /**
+     * Names projects have used for "the default branch". A source configured with
+     * one while the repository uses another is the most common ref mistake, and
+     * the names are too far apart for the typo rule to catch.
+     */
+    private static final Set<String> LEGACY_DEFAULT_NAMES = Set.of("main", "master", "trunk");
+
     private final GitCommandRunner runner;
     private final GitSyncProperties properties;
 
@@ -211,7 +218,22 @@ public class GitMirrorStore {
                 best = candidate;
             }
         }
-        return bestDistance <= allowedDistance ? best : null;
+        if (bestDistance <= allowedDistance) {
+            return best;
+        }
+        // "master" and "main" are four edits apart, so the distance rule above never
+        // catches the most common ref mistake of all: the repository was renamed to
+        // (or still uses) the other one. Naming it explicitly beats leaving the
+        // reader to scan the branch list for a familiar-looking name.
+        if (LEGACY_DEFAULT_NAMES.contains(normalized)) {
+            for (String candidate : candidates) {
+                if (candidate != null
+                        && LEGACY_DEFAULT_NAMES.contains(candidate.toLowerCase(Locale.ROOT))) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
     }
 
     /** Levenshtein distance; two short ref names, so the quadratic cost is noise. */

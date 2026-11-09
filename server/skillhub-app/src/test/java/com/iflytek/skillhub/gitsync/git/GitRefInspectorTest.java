@@ -113,6 +113,31 @@ class GitRefInspectorTest {
     }
 
     @Test
+    void suggestsMainWhenTheSourceStillSaysMaster() throws IOException {
+        GitSyncProperties properties = properties();
+        Path repo = repository(properties, "main", "develop");
+
+        // "master" is four edits from "main": too far for the typo rule, but this is
+        // the mistake the field reports most often, so it is named explicitly.
+        GitRefNotFoundException thrown = assertThrows(GitRefNotFoundException.class,
+                () -> inspector(properties).requireRefExists(url(repo), "master", GitCredential.anonymous()));
+
+        assertEquals("main", thrown.suggestion());
+        assertEquals("error.gitSource.refNotFoundWithSuggestion", thrown.messageCode());
+    }
+
+    @Test
+    void suggestsMasterWhenTheRepositoryStillUsesIt() throws IOException {
+        GitSyncProperties properties = properties();
+        Path repo = repository(properties, "master");
+
+        GitRefNotFoundException thrown = assertThrows(GitRefNotFoundException.class,
+                () -> inspector(properties).requireRefExists(url(repo), "main", GitCredential.anonymous()));
+
+        assertEquals("master", thrown.suggestion());
+    }
+
+    @Test
     void reportsAnEmptyRepositoryInsteadOfAWithRefFailure() throws IOException {
         GitSyncProperties properties = properties();
         Path repo = tempDir.resolve("empty");
