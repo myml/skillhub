@@ -413,7 +413,11 @@ public class GitSyncAdminService {
         return new ValidatedSource(
                 repoUrl,
                 repoPath,
-                StringUtils.hasText(request.defaultRef()) ? request.defaultRef().trim() : "main",
+                // An empty ref means "whatever the repository's default branch is":
+                // the remote is asked for HEAD at sync time, so nothing is assumed
+                // here. Filling in "main" would silently sync the wrong branch on
+                // repositories that call their default branch differently.
+                request.defaultRef() == null ? "" : request.defaultRef().trim(),
                 request.subpath() == null ? "" : request.subpath().trim(),
                 request.namespaceSlug().trim(),
                 credential,

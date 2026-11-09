@@ -154,7 +154,9 @@ class GitSyncAdminServiceTest {
         assertEquals("owner/repo", inserted.repoPath());
         // The URL is stored exactly as configured: git clones this remote.
         assertEquals("https://github.com/owner/repo.git", inserted.repoUrl());
-        assertEquals("main", inserted.defaultRef());
+        // No ref means "the repository's default branch", decided at sync time;
+        // nothing is guessed here.
+        assertEquals("", inserted.defaultRef());
         assertEquals("", inserted.subpath());
         assertEquals(60, inserted.syncIntervalMinutes());
         assertEquals("admin-1", inserted.publisherId());

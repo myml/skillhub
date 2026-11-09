@@ -11,6 +11,8 @@ import jakarta.validation.constraints.Size;
  * namespace exactly like a manual publish does (GLOBAL is public, a team
  * namespace is visible to its members).
  *
+ * @param defaultRef    branch, tag or commit to sync; empty follows the repository's
+ *                      own default branch (the remote's HEAD)
  * @param subpath    repository subdirectory to scan; empty scans the whole repository
  * @param credential    credential for the repository: {@code <user>:<deploy token>} for
  *                      HTTP(S) remotes or the private key itself for SSH remotes;

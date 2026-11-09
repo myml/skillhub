@@ -23,7 +23,7 @@
 | 字段 | 怎么填 |
 | --- | --- |
 | 仓库地址 | `https://github.com/owner/repo`、`git@gitlab.example.com:group/repo.git` 这类地址。不支持 `http://` |
-| 分支或标签 | 想跟哪个分支就填哪个，默认 `main` |
+| 分支或标签 | 想跟哪个分支就填哪个；**留空表示跟随仓库的默认分支**（GitLab/GitHub 上标为 default 的那个），默认分支不叫 `main` 也不会错。填错分支时**点保存就会提示**，并列出仓库里真实存在的分支名（还会猜你想填哪个），不用等到同步才发现 |
 | 子目录 | 仓库里放 skill 的那一层目录，例如 `skills`；整个仓库就是一个 skill 时留空 |
 | 凭据 | 公开仓库留空；私有仓库见第四节 |
 | 目标命名空间 | 选一个你是成员的命名空间，导入的 skill 会放在这里 |
@@ -177,7 +177,7 @@ curl -s -X POST "$API" \
   }'
 ```
 
-字段和页面表单一一对应：`repoUrl` 仓库地址、`defaultRef` 分支或标签（默认 main）、`subpath` 子目录（空 = 整仓）、`namespaceSlug` 目标命名空间（必须是你是成员的命名空间）、`credential` 凭据（公开仓库填空）、`syncIntervalMinutes` 同步间隔分钟、`enabled` 定时同步开关。响应里的 `data.id` 就是这个源的 ID，后面都用它。
+字段和页面表单一一对应：`repoUrl` 仓库地址、`defaultRef` 分支或标签（空 = 跟随仓库默认分支，即远端 `HEAD`）、`subpath` 子目录（空 = 整仓）、`namespaceSlug` 目标命名空间（必须是你是成员的命名空间）、`credential` 凭据（公开仓库填空）、`syncIntervalMinutes` 同步间隔分钟、`enabled` 定时同步开关。响应里的 `data.id` 就是这个源的 ID，后面都用它。
 
 ### 4. 试运行（只预览，不导入）
 

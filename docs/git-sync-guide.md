@@ -113,7 +113,7 @@ GET    /api/v1/admin/git-sources/{id}/items 每个 skill 目录的状态
 | 字段 | 必填 | 默认 | 说明 |
 | --- | --- | --- | --- |
 | 仓库地址 | ✅ | — | 见 §3 |
-| 分支或标签 | ⬜ | `main` | 分支名、tag 名、或完整提交 SHA 都可以（走 `git ls-remote` 解析） |
+| 分支或标签 | ⬜ | 空 = 仓库默认分支 | 留空时用远端 `HEAD` 指向的默认分支（`ls-remote --symref` 解析，仓库默认分支叫 `main`、`master` 还是别的都行）；填分支名、tag 名或完整提交 SHA 则固定到该 ref。**保存时服务端会先向远端核对一次**（只跑 `ls-remote`，不下载内容、不建镜像），ref 不存在会当场 400 并列出仓库现有分支，不会等到下一次同步才失败 |
 | 子目录 | ⬜ | 空 = 整仓 | 只扫描该目录前缀下的内容，见 §6.2 |
 | 凭据 | 公开仓库可不填 | 空 | 见 §5 |
 | 目标命名空间 | ✅ | `global` | 下拉选择你是成员的命名空间；决定导入后的可见性（§6.4） |
@@ -178,7 +178,7 @@ SKILLHUB_GITSYNC_URL_ALLOWED_HOSTS=gitlab.internal.example.com
 | 字段 | 值 |
 | --- | --- |
 | 仓库地址 | `git@gitlab.internal.example.com:group/skills.git` |
-| 分支或标签 | `main` |
+| 分支或标签 | 留空（= 仓库默认分支）；要固定到别的分支再填 |
 | 子目录 | `skills` |
 | 凭据 | `-----BEGIN OPENSSH PRIVATE KEY-----…`（只读部署密钥私钥全文） |
 | 目标命名空间 | `global` |
@@ -307,6 +307,10 @@ repo/
 | `已达到源数量上限：每个用户最多 N 个源。` | 触发 `max-sources-per-user` 配额 | 删除不用的源或调大配额 |
 | `版本已存在：x` | 手动上传/其它源已经把该版本发布了 | 在仓库里改 `SKILL.md` 的 `version`（或让同步派生版本） |
 | `无法通过审核：该命名空间下已存在名为"x"的已发布技能` | 同名 skill 已属于另一个归属人 | 改名，或先处理已存在的同名 skill |
+| `分支或标签“x”在仓库中不存在。仓库现有分支：…` | 填的分支/tag 远端没有（常见：想当然填了 `master`，而仓库默认分支叫 `main` 或别的） | 按提示列出的分支改；不确定就留空，跟随仓库默认分支 |
+| `分支或标签“x”在仓库中不存在。你是不是想用“main”？仓库现有分支：…` | 同上，且有一个分支名与之很接近（拼写错误） | 点「保存」前先按猜测的分支名改；提示里的 `details.availableBranches` 是同一份清单，供脚本/前端取用 |
+| `仓库没有可同步的分支…` | 仓库是空的，或分支还没推送到远端 | 推送分支后重试；确认地址指向的仓库有内容 |
+| `fatal: couldn't find remote ref x` | 旧版本遇到不存在的 ref 时直接把 git 报错抛了出来 | 升级后同一问题会提示「分支或标签不存在」并列出可用分支；临时处置同上 |
 | `Authentication failed` / `could not read Username` | HTTPS 凭据错或没填 | 检查 `用户名:令牌`，确认令牌有读权限、未过期 |
 | `Host key verification failed` | SSH 主机密钥变了 | 删除 `<work-dir>/ssh/known_hosts` 后重试 |
 | `Permission denied (publickey)` | 私钥不对，或没登记为部署密钥 | 重新粘贴私钥，并在仓库端确认部署密钥已启用 |

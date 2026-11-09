@@ -151,6 +151,10 @@ describe('toSourceInput', () => {
     expect(input.defaultRef).toBe('main')
   })
 
+  it('sends no ref at all when the branch is left empty, so the server follows the default branch', () => {
+    expect(toSourceInput({ ...baseForm, defaultRef: '  ' }).defaultRef).toBeNull()
+  })
+
   it('never sends a publisher or an auto-publish flag', () => {
     const input = toSourceInput({ ...baseForm, defaultRef: 'main' })
 

@@ -4,6 +4,9 @@ import java.time.Instant;
 
 /**
  * Git source as returned to the administration UI.
+ *
+ * <p>{@code defaultRef} is empty when the source follows the repository's own
+ * default branch rather than a configured one.
  */
 public record GitSourceResponse(Long id,
                                 String repoUrl,

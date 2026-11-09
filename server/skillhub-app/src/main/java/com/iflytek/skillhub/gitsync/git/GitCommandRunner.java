@@ -114,6 +114,15 @@ public class GitCommandRunner {
     }
 
     /**
+     * Same as above with an explicit timeout: cheap probes (a ref check while an
+     * administrator fills in a form) must not wait as long as a fetch may.
+     */
+    public String runForText(Path workingDirectory, List<String> arguments, Map<String, String> environment,
+                             Duration timeout) {
+        return new String(run(workingDirectory, arguments, environment, timeout), StandardCharsets.UTF_8);
+    }
+
+    /**
      * Environment that makes git non-interactive and keeps repository content from
      * running anything on the host.
      */

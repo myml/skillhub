@@ -6,6 +6,7 @@ import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
 import com.iflytek.skillhub.domain.shared.exception.LocalizedDomainException;
 import com.iflytek.skillhub.domain.shared.exception.LocalizedMessage;
+import com.iflytek.skillhub.gitsync.git.GitRefNotFoundException;
 import com.iflytek.skillhub.metrics.SkillHubMetrics;
 import com.iflytek.skillhub.security.SensitiveLogSanitizer;
 import com.iflytek.skillhub.storage.StorageAccessException;
@@ -110,6 +111,21 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(
                 apiResponseFactory.error(503, "error.storage.unavailable"));
+    }
+
+    /**
+     * The configured branch, tag or commit does not exist in the repository.
+     *
+     * <p>A configuration mistake is not a server fault: answer 400 with the refs
+     * the repository actually advertises, so the administrator can fix the form
+     * instead of reading a generic 500.
+     */
+    @ExceptionHandler(GitRefNotFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleGitRefNotFound(GitRefNotFoundException ex,
+                                                                  HttpServletRequest request) {
+        logHandledException(HttpStatus.BAD_REQUEST, ex.messageCode(), request);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                apiResponseFactory.errorWithDetails(400, ex.messageCode(), ex.details(), ex.messageArgs()));
     }
 
     @ExceptionHandler(AsyncRequestTimeoutException.class)

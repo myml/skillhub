@@ -59,7 +59,7 @@ CREATE TABLE git_source (
     repo_url          VARCHAR(512) NOT NULL,
     auth_type         VARCHAR(32)  NOT NULL,   -- none | token | ssh
     credential_ref    VARCHAR(256),            -- K8s Secret / env 引用，绝不明文入库
-    default_ref       VARCHAR(128) NOT NULL DEFAULT 'main',
+    default_ref       VARCHAR(128) NOT NULL DEFAULT '',  -- 空 = 跟随远端默认分支（HEAD），否则固定到该 ref
     skill_glob        VARCHAR(256) NOT NULL DEFAULT '**/SKILL.md',
     exclude_globs     TEXT,
     target_namespace  VARCHAR(128) NOT NULL,

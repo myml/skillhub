@@ -29,7 +29,9 @@ public class GitCliRepositoryFetcher implements GitRepositoryFetcher {
 
     @Override
     public GitCommitRef resolveRef(GitRepositoryRef repository, String ref) {
-        String effectiveRef = ref == null || ref.isBlank() ? "HEAD" : ref.trim();
+        // An empty ref is a request for the repository's default branch, which only
+        // the server can name (HEAD); this layer must not assume "main".
+        String effectiveRef = ref == null ? "" : ref.trim();
         return mirrors.fetch(repository.sourceId(), repository.repoUrl(), effectiveRef, repository.credential());
     }
 

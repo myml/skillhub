@@ -7,6 +7,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Map;
 
 @Component
 public class ApiResponseFactory {
@@ -27,6 +28,16 @@ public class ApiResponseFactory {
     public ApiResponse<Void> error(int code, String messageCode, Object... args) {
         String msg = messageSource.getMessage(messageCode, args, messageCode, LocaleContextHolder.getLocale());
         return new ApiResponse<>(code, msg, null, Instant.now(clock), MDC.get("requestId"));
+    }
+
+    /**
+     * Error response that also tells the caller what it can do about the problem,
+     * for example which branches the repository actually has.
+     */
+    public ApiResponse<Void> errorWithDetails(int code, String messageCode, Map<String, Object> details,
+                                              Object... args) {
+        String msg = messageSource.getMessage(messageCode, args, messageCode, LocaleContextHolder.getLocale());
+        return new ApiResponse<>(code, msg, null, Instant.now(clock), MDC.get("requestId"), details);
     }
 
     public ApiResponse<Void> errorMessage(int code, String msg) {

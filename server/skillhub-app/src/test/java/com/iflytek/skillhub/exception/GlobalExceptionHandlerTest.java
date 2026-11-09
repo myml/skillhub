@@ -5,10 +5,12 @@ import static org.mockito.Mockito.when;
 
 import com.iflytek.skillhub.dto.ApiResponse;
 import com.iflytek.skillhub.dto.ApiResponseFactory;
+import com.iflytek.skillhub.gitsync.git.GitRefNotFoundException;
 import com.iflytek.skillhub.metrics.SkillHubMetrics;
 import com.iflytek.skillhub.security.SensitiveLogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Clock;
+import java.util.List;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,5 +71,31 @@ class GlobalExceptionHandlerTest {
         ApiResponse<?> body = (ApiResponse<?>) response.getBody();
         assertThat(body.code()).isEqualTo(408);
         assertThat(body.msg()).isEqualTo("Request timed out");
+    }
+
+    @Test
+    void handleGitRefNotFound_shouldAnswerBadRequestWithTheBranchesThatExist() {
+        GitRefNotFoundException ex = new GitRefNotFoundException("master", List.of("develop", "main"), "main");
+
+        ResponseEntity<?> response = handler.handleGitRefNotFound(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResponse<?> body = (ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.code()).isEqualTo(400);
+        assertThat(body.details()).containsEntry("ref", "master");
+        assertThat(body.details()).containsEntry("suggestion", "main");
+        assertThat(body.details().get("availableBranches")).isEqualTo(List.of("develop", "main"));
+    }
+
+    @Test
+    void handleGitRefNotFound_shouldNotOfferASuggestionTwiceWhenNoneIsClose() {
+        GitRefNotFoundException ex = new GitRefNotFoundException("release/1.0", List.of("main"), null);
+
+        ResponseEntity<?> response = handler.handleGitRefNotFound(ex, request);
+
+        ApiResponse<?> body = (ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.details()).doesNotContainKey("suggestion");
     }
 }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException;
 import com.iflytek.skillhub.gitsync.GitSyncProperties;
 import com.iflytek.skillhub.gitsync.scan.GitSkillDiscovery;
 import java.io.IOException;
@@ -58,11 +59,16 @@ class GitCliRepositoryFetcherTest {
 
     /** Creates a real repository with two skills plus a binary file and a nested path. */
     private Path createRepository() throws IOException {
+        return createRepository("main");
+    }
+
+    /** The same repository, with a chosen default branch. */
+    private Path createRepository(String defaultBranch) throws IOException {
         Path repo = tempDir.resolve("origin");
         Files.createDirectories(repo);
         GitSyncProperties local = properties();
         GitCommandRunner git = runner(local);
-        git.run(repo, List.of("init", "--quiet", "-b", "main", "."), Map.of());
+        git.run(repo, List.of("init", "--quiet", "-b", defaultBranch, "."), Map.of());
         git.run(repo, List.of("config", "user.email", "test@example.com"), Map.of());
         git.run(repo, List.of("config", "user.name", "Test"), Map.of());
 
@@ -222,16 +228,76 @@ class GitCliRepositoryFetcherTest {
     }
 
     @Test
-    void rejectsAnUnknownRefWithAUsefulMessage() throws IOException {
+    void rejectsAnUnknownRefAndListsTheBranchesThatDoExist() throws IOException {
         GitSyncProperties properties = properties();
         GitCliRepositoryFetcher fetcher = new GitCliRepositoryFetcher(
                 new GitMirrorStore(runner(properties), properties));
-        Path repo = createRepository();
+        Path repo = createRepository("develop");
         GitRepositoryRef reference = reference(repo, 4L);
 
-        GitProviderException error = assertThrows(GitProviderException.class,
-                () -> fetcher.resolveRef(reference, "does-not-exist"));
-        assertTrue(error.getMessage().contains("does-not-exist"), error.getMessage());
+        // "master" does not exist here: that used to surface as
+        // "fatal: couldn't find remote ref master" with a 500, which reads like a
+        // server fault even though it is a configuration mistake.
+        GitRefNotFoundException error = assertThrows(GitRefNotFoundException.class,
+                () -> fetcher.resolveRef(reference, "master"));
+        assertEquals("master", error.ref());
+        assertTrue(error.availableBranches().contains("develop"),
+                "the error names the branches the server does advertise: " + error.availableBranches());
+        assertEquals(400, error.statusCode(), "a wrong ref is a caller problem, not a server fault");
+        assertEquals("error.gitSource.refNotFound", error.messageCode(),
+                "no branch is close to \"master\", so nothing is suggested");
+    }
+
+    @Test
+    void suggestsTheClosestBranchWhenTheConfiguredOneLooksLikeATypo() throws IOException {
+        GitSyncProperties properties = properties();
+        GitCommandRunner git = runner(properties);
+        GitMirrorStore mirrors = new GitMirrorStore(git, properties);
+        GitCliRepositoryFetcher fetcher = new GitCliRepositoryFetcher(mirrors);
+        Path repo = createRepository("main");
+        git.run(repo, List.of("branch", "develop"), Map.of());
+        GitRepositoryRef reference = reference(repo, 5L);
+
+        GitRefNotFoundException error = assertThrows(GitRefNotFoundException.class,
+                () -> fetcher.resolveRef(reference, "mian"));
+
+        assertEquals("main", error.suggestion());
+        assertEquals("error.gitSource.refNotFoundWithSuggestion", error.messageCode());
+    }
+
+    @Test
+    void followsTheRepositoryDefaultBranchWhenTheRefIsEmpty() throws IOException {
+        GitSyncProperties properties = properties();
+        GitCliRepositoryFetcher fetcher = new GitCliRepositoryFetcher(
+                new GitMirrorStore(runner(properties), properties));
+        // A default branch that is not called "main" is exactly the case an empty
+        // ref has to cope with.
+        Path repo = createRepository("develop");
+        GitRepositoryRef reference = reference(repo, 8L);
+
+        GitCommitRef byName = fetcher.resolveRef(reference, "develop");
+        GitCommitRef byNull = fetcher.resolveRef(reference, null);
+        GitCommitRef byBlank = fetcher.resolveRef(reference, "  ");
+
+        assertEquals(byName.commitSha(), byNull.commitSha());
+        assertEquals(byName.commitSha(), byBlank.commitSha());
+        assertEquals("develop", byNull.ref(), "the default branch is reported by its real name");
+        assertEquals("develop", byBlank.ref());
+    }
+
+    @Test
+    void reportsAnEmptyRepositoryInsteadOfFailingInsideGit() throws IOException {
+        GitSyncProperties properties = properties();
+        GitCommandRunner git = runner(properties);
+        Path empty = tempDir.resolve("empty.git");
+        Files.createDirectories(empty);
+        git.run(empty, List.of("init", "--bare", "--quiet", "."), Map.of());
+        GitCliRepositoryFetcher fetcher = new GitCliRepositoryFetcher(new GitMirrorStore(git, properties));
+        GitRepositoryRef reference = reference(empty, 9L);
+
+        DomainBadRequestException error = assertThrows(DomainBadRequestException.class,
+                () -> fetcher.resolveRef(reference, ""));
+        assertEquals("error.gitSource.emptyRepository", error.messageCode());
     }
 
     @Test

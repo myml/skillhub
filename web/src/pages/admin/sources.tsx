@@ -582,7 +582,9 @@ export function AdminSourcesPage() {
                           ) : null}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {[source.defaultRef, source.subpath].filter(Boolean).join(' · ')}
+                          {[source.defaultRef || t('adminSources.defaultRefAuto'), source.subpath]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </div>
                       </div>
                     </div>
@@ -688,6 +690,7 @@ export function AdminSourcesPage() {
                 value={form.defaultRef}
                 onChange={(event) => setForm((current) => ({ ...current, defaultRef: event.target.value }))}
               />
+              <p className="text-xs text-muted-foreground">{t('adminSources.formDefaultRefHint')}</p>
             </div>
 
             <div className="space-y-2">

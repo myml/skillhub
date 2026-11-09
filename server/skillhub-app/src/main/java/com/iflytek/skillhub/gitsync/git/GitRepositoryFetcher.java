@@ -14,6 +14,13 @@ public interface GitRepositoryFetcher {
     /**
      * Resolves a branch, tag, or commit-ish to an immutable commit SHA, fetching
      * the repository content when the local mirror does not hold it yet.
+     *
+     * <p>An empty {@code ref} resolves the repository's default branch as the
+     * remote reports it, so a source does not have to know whether that branch is
+     * called {@code main}, {@code master} or anything else.
+     *
+     * @throws com.iflytek.skillhub.domain.shared.exception.DomainBadRequestException
+     *         when the ref does not exist in the repository
      */
     GitCommitRef resolveRef(GitRepositoryRef repository, String ref);
 
