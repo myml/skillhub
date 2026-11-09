@@ -45,6 +45,19 @@ describe('apiErrorDetail', () => {
     expect(detail).toBe('Boom (requestId: req-123)')
   })
 
+  it('keeps the request id even when the explanation is long enough to be truncated', async () => {
+    const { ApiError, apiErrorDetail } = await import('./api-error')
+    const { MAX_ERROR_MESSAGE_LENGTH } = await import('./error-display')
+
+    const detail = apiErrorDetail(
+      new ApiError('x'.repeat(400), 400, undefined, undefined, 'req-123'),
+    )
+
+    expect(detail).toContain('(requestId: req-123)')
+    expect(detail!.length).toBeLessThanOrEqual(MAX_ERROR_MESSAGE_LENGTH)
+    expect(detail).toMatch(/x+\.\.\. \(requestId: req-123\)$/)
+  })
+
   it('keeps the plain message when the server sent no request id', async () => {
     const { ApiError, apiErrorDetail } = await import('./api-error')
 

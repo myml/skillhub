@@ -1,4 +1,5 @@
 import i18n from '@/i18n/config'
+import { MAX_ERROR_MESSAGE_LENGTH, truncateErrorMessage } from './error-display'
 import { toast } from './toast'
 
 const ACCOUNT_DISABLED_REASON = 'accountDisabled'
@@ -40,7 +41,18 @@ export function apiErrorDetail(error: unknown): string | undefined {
     return undefined
   }
   const requestId = error instanceof ApiError ? error.requestId : undefined
-  return requestId ? `${error.message} (requestId: ${requestId})` : error.message
+  if (!requestId) {
+    return truncateErrorMessage(error.message)
+  }
+  const suffix = ` (requestId: ${requestId})`
+  // Toasts truncate their description; a long explanation (the branch list of a
+  // bad ref, for instance) would eat the id, which is the one part the user
+  // needs to quote. Trim the explanation to leave the id intact.
+  const budget = MAX_ERROR_MESSAGE_LENGTH - suffix.length
+  const explanation = error.message.length > budget
+    ? `${error.message.slice(0, Math.max(0, budget - 3))}...`
+    : error.message
+  return `${explanation}${suffix}`
 }
 
 function isAccountDisabledError(error: ApiError): boolean {
