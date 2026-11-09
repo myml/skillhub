@@ -101,6 +101,38 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handleGitProviderException_shouldAnswerBadRequestWhenTheCredentialIsRejected() {
+        when(request.getMethod()).thenReturn("POST");
+        when(sensitiveLogSanitizer.sanitizeRequestTarget(request)).thenReturn("/api/v1/admin/git-sources");
+
+        ResponseEntity<?> response = handler.handleGitProviderException(new GitProviderException(
+                "git ls-remote --symref failed: remote: Invalid username or token. "
+                        + "fatal: Authentication failed for 'https://github.com/owner/repo/'"), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResponse<?> body = (ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.code()).isEqualTo(400);
+        assertThat(body.msg()).isEqualTo("error.gitSource.credentialRejected");
+        assertThat(body.details()).containsEntry("kind", "authentication");
+    }
+
+    @Test
+    void handleGitProviderException_shouldAnswerBadRequestWhenTheRepositoryIsMissing() {
+        when(request.getMethod()).thenReturn("POST");
+        when(sensitiveLogSanitizer.sanitizeRequestTarget(request)).thenReturn("/api/v1/admin/git-sources");
+
+        ResponseEntity<?> response = handler.handleGitProviderException(new GitProviderException(
+                "git ls-remote failed: remote: Repository not found."), request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        ApiResponse<?> body = (ApiResponse<?>) response.getBody();
+        assertThat(body).isNotNull();
+        assertThat(body.msg()).isEqualTo("error.gitSource.repoUnavailable");
+        assertThat(body.details()).containsEntry("kind", "not_found");
+    }
+
+    @Test
     void handleGitProviderException_shouldAnswerBadGatewayInsteadOfUnhandled() {
         when(request.getMethod()).thenReturn("POST");
         when(sensitiveLogSanitizer.sanitizeRequestTarget(request)).thenReturn("/api/v1/admin/git-sources/11/plan");

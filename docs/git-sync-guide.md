@@ -309,7 +309,9 @@ repo/
 | `无法通过审核：该命名空间下已存在名为"x"的已发布技能` | 同名 skill 已属于另一个归属人 | 改名，或先处理已存在的同名 skill |
 | `分支或标签“x”在仓库中不存在。仓库现有分支：…` | 填的分支/tag 远端没有（常见：想当然填了 `master`，而仓库默认分支叫 `main` 或别的） | 按提示列出的分支改；不确定就留空，跟随仓库默认分支 |
 | `分支或标签“x”在仓库中不存在。你是不是想用“main”？仓库现有分支：…` | 同上，且有一个分支名与之很接近（拼写错误，或 `master`/`main` 互相改名这类情况） | 按猜测的分支名改即可；提示里的 `details.availableBranches` 是同一份清单，`details.suggestion` 是猜测值，供脚本/前端取用 |
-| `访问 git 仓库失败（网络或上游异常）…` | git 自身失败：远端不可达、网络超时、SSH/HTTPS 被中间层拒绝、服务端没装 git 等 | 先确认地址和凭据（§5）；把响应里的 `requestId` 拿去日志里搜，能看到 git 的真实 stderr。这是 502，不是你的配置写错 |
+| `git 服务器拒绝了凭据：用户名或令牌无效、已过期，或没有该仓库的读取权限…` | 远端明确拒绝了凭据（`Authentication failed`、`Invalid username or token`、`HTTP Basic: Access denied`、`Permission denied (publickey)` 等） | 更新凭据内容（§5）；仓库是公开的就把凭据留空。这是 400：改的是表单里的「凭据」字段，`details.kind` 为 `authentication` |
+| `仓库不存在，或凭据无权访问…` | 远端说仓库不存在（`Repository not found`、`does not appear to be a git repository`、404），或凭据看不到它 | 核对仓库地址拼写；私有仓库确认凭据有读取权限。同样是 400，`details.kind` 为 `not_found` |
+| `无法连接 git 服务器：地址不可达、握手超时，或服务端没有安装 git…` | 连不上远端：DNS/网络不通、端口被拒、TLS 握手失败、机器上没有 git | 先确认服务端能访问该地址（§7 的排查办法）；把响应里的 `requestId` 拿去日志里搜，能看到 git 的真实 stderr。这是 502（上游故障），不是你填错了 |
 | `仓库没有可同步的分支…` | 仓库是空的，或分支还没推送到远端 | 推送分支后重试；确认地址指向的仓库有内容 |
 | `fatal: couldn't find remote ref x` | 旧版本遇到不存在的 ref 时直接把 git 报错抛了出来 | 升级后同一问题会提示「分支或标签不存在」并列出可用分支；临时处置同上 |
 | `Authentication failed` / `could not read Username` | HTTPS 凭据错或没填 | 检查 `用户名:令牌`，确认令牌有读权限、未过期 |
@@ -322,10 +324,10 @@ Git 源相关接口的错误响应统一成这几档，前端只需要按状态�
 
 | 状态码 | 什么时候 | 典型错误码 |
 | --- | --- | --- |
-| 400 | 配置写错，管理员自己能改（分支不存在、间隔越界、地址不在白名单、重复注册…） | `error.gitSource.refNotFound` / `error.gitSource.refNotFoundWithSuggestion` / `error.gitSource.emptyRepository` |
+| 400 | 配置写错，管理员自己能改（分支不存在、**凭据被拒**、**仓库不存在**、间隔越界、地址不在白名单、重复注册…） | `error.gitSource.refNotFound` / `error.gitSource.refNotFoundWithSuggestion` / `error.gitSource.credentialRejected` / `error.gitSource.repoUnavailable` / `error.gitSource.emptyRepository` |
 | 401 / 403 | 身份或权限不够 | — |
 | 404 | 源或命名空间不存在 | `error.gitSource.notFound` |
-| 502 | git 自身失败：远端不可达、网络、凭据被拒等 | `error.gitSource.upstream` |
+| 502 | 连不上远端：DNS/网络不通、端口被拒、握手超时、服务端没装 git | `error.gitSource.upstream` |
 | 500 | 只有真正的程序缺陷才会落到这里；看到 500 就是 bug，请带着 `requestId` 报给我们 | `error.internal` |
 
 错误响应体在通用信封上多两个可用字段：

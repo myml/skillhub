@@ -12,6 +12,8 @@ import com.iflytek.skillhub.metrics.SkillHubMetrics;
 import com.iflytek.skillhub.security.SensitiveLogSanitizer;
 import com.iflytek.skillhub.storage.StorageAccessException;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.Locale;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -130,28 +132,46 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * git itself reported a failure we did not classify: the remote is unreachable,
-     * the network is failing, or the runtime has no git binary.
+     * The git provider refused the request. The status depends on who can fix it:
      *
-     * <p>That is a gateway problem rather than "unhandled": answer 502 with a
-     * correlation id, and keep the stack trace out of the error log so a real bug in
-     * our code still stands out. The git output goes to the debug log only, because
-     * stderr can echo a remote URL that carries a credential.
+     * <ul>
+     *   <li>the remote rejected the credential, or the repository is not visible to
+     *       it - the administrator can fix the form, so answer 400 and say which
+     *       field to look at;</li>
+     *   <li>anything else (unreachable host, timeout, no git binary) is a gateway
+     *       problem - answer 502.</li>
+     * </ul>
+     *
+     * <p>Either way the response carries a correlation id and the stack trace stays
+     * out of the error log, so a real bug in our code still stands out. The git
+     * output goes to the debug log only, because stderr can echo a remote URL that
+     * carries a credential.
      */
     @ExceptionHandler(GitProviderException.class)
     public ResponseEntity<ApiResponse<Void>> handleGitProviderException(GitProviderException ex,
                                                                         HttpServletRequest request) {
         logger.warn(
-                "Git upstream failure [requestId={}, method={}, path={}, userId={}]: {}",
+                "Git upstream failure [requestId={}, method={}, path={}, userId={}, kind={}]: {}",
                 MDC.get("requestId"),
                 request.getMethod(),
                 sensitiveLogSanitizer.sanitizeRequestTarget(request),
                 resolveUserId(request),
+                ex.kind(),
                 ex.getMessage()
         );
         logger.debug("Git upstream failure detail", ex);
-        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
-                apiResponseFactory.error(502, "error.gitSource.upstream"));
+
+        Map<String, Object> details = Map.of("kind", ex.kind().name().toLowerCase(Locale.ROOT));
+        return switch (ex.kind()) {
+            // A wrong deploy token used to surface as "network error, try again later",
+            // which sends the administrator looking at the wrong thing entirely.
+            case AUTHENTICATION -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    apiResponseFactory.errorWithDetails(400, "error.gitSource.credentialRejected", details));
+            case NOT_FOUND -> ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    apiResponseFactory.errorWithDetails(400, "error.gitSource.repoUnavailable", details));
+            case UPSTREAM -> ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(
+                    apiResponseFactory.error(502, "error.gitSource.upstream"));
+        };
     }
 
     @ExceptionHandler(AsyncRequestTimeoutException.class)
